@@ -1,0 +1,31 @@
+    mov eax, xi
+    xor eax, yi
+    mov ebx, xi
+    shl ebx, 16
+    or eax, ebx
+    mov ebx, fi
+    shl ebx, 8
+    add eax, ebx
+
+
+    mov eax, xi
+    and eax, yi
+    mov ebx, xi
+    or ebx, yi
+    shl ebx, 8
+    or eax, ebx
+    mov ebx, fi
+    shl ebx, 20
+    or eax, ebx
+    mov ebx, fi
+    shl ebx, 8
+    or ebx, fi
+    shl ebx, 8
+    or ebx, fi
+    add eax, ebx
+
+
+
+
+
+
