@@ -18,6 +18,8 @@ static IDirectDrawClipper* g_clipper = NULL;
 static bool g_isWindowed = false;
 static DWORD g_wndWidth = 0, g_wndHeight = 0;
 static void(__stdcall *g_keyHandler)(DWORD) = NULL;
+static void(__stdcall *g_mouseHandler)(DWORD, DWORD, DWORD) = NULL;
+static void(__stdcall *g_errorHandler)(const char* msg) = NULL;
 static bool g_switchingWindow = FALSE;
 
 struct CImg {
@@ -33,7 +35,12 @@ struct CPixelPaint {
 };
 
 void msgError(const char* msg) {
-    MessageBoxA(g_hMainWnd, msg, "Error", MB_OK | MB_ICONEXCLAMATION);
+    if (g_errorHandler != NULL) {
+        g_errorHandler(msg);
+        return;
+    }
+    if (MessageBoxA(g_hMainWnd, msg, "Error", MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDRETRY)
+        return;
     ExitProcess(1);
 }
 
@@ -48,13 +55,16 @@ void msgErrorV(const char* msg, DWORD v) {
     msgError(msg);
 }
 
-
 bool checkHr(HRESULT hr, const char* msg) {
     if (hr != DD_OK) {
         msgError(msg);
         return false;
     }
     return true;
+}
+
+void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
+    g_errorHandler = callback;
 }
 
 
@@ -77,6 +87,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_keyHandler(wParam);
         }
         break;
+    case WM_LBUTTONUP:
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_MOUSEMOVE:
+        if (g_mouseHandler != NULL) {
+            g_mouseHandler(message, wParam, lParam);
+        }
+        break;
     } // switch
 
     return DefWindowProc(hWnd, message, wParam, lParam);
@@ -84,6 +103,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 void __stdcall drd_setKeyHandler(void(__stdcall *callback)(DWORD) ) {
     g_keyHandler = callback;
+}
+void __stdcall drd_setMouseHandler(void(__stdcall *callback)(DWORD, DWORD, DWORD) ) {
+    g_mouseHandler = callback;
 }
 
 
@@ -116,6 +138,8 @@ HWND createWindow(DWORD width, DWORD height, BOOL isWindow)
         style = WS_POPUP;
     }
 
+
+
     hWnd = CreateWindowExA(
         exstyle, //WS_EX_TOPMOST,
         "WndClass", "WndName",
@@ -123,8 +147,10 @@ HWND createWindow(DWORD width, DWORD height, BOOL isWindow)
         CW_USEDEFAULT, CW_USEDEFAULT, width, height,
         NULL, NULL, hInst, NULL);
 
+
     ShowWindow(hWnd, SW_SHOW);
     UpdateWindow(hWnd);
+
     SetFocus(hWnd);
     return hWnd;
 }
@@ -292,7 +318,17 @@ void __stdcall drd_flip()
         // first we need to figure out where on the primary surface our window lives
         POINT p = {0,0};
         ClientToScreen(g_hMainWnd, &p);
+        RECT gr = {0};
+        GetWindowRect(g_hMainWnd, &gr);
         RECT rcRectDest;
+        GetClientRect(g_hMainWnd, &rcRectDest);
+
+        if (rcRectDest.right != g_wndWidth) { // fix window size
+            int borderWidth = p.x - gr.left;
+            int extraHeight = p.y - gr.top + borderWidth;
+            MoveWindow(g_hMainWnd, gr.left, gr.top, g_wndWidth + borderWidth * 2, g_wndHeight + extraHeight, FALSE);
+        }
+
         GetClientRect(g_hMainWnd, &rcRectDest);
         OffsetRect(&rcRectDest, p.x, p.y);
         RECT rcRectSrc;

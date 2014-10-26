@@ -27,6 +27,15 @@ drd_flip PROTO
 ; func should be a pointer to a function which takes 1 DWORD which is the vkey code of the key
 drd_setKeyHandler PROTO func:DWORD
 
+; setup a mouse message handler. 
+; func should be a pointer to a function which takes 3 DWORD: msg, wParam, lParam
+drd_setMouseHandler PROTO func:DWORD
+
+; setup an error handler
+; func should be a pointer to a function which takes 1 DWORD which is a pointer to a string describing the error
+; if no handler is defined, an error messagebox appears 
+drd_setErrorHandler PROTO func:DWORD
+
 ; processes window messages from the user, return FALSE if Escape key was clicked
 ; this function should be called in a loop
 drd_processMessages PROTO

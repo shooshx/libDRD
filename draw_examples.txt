@@ -25,7 +25,76 @@
     add eax, ebx
 
 
+** one line
 
+    cmp yi, 100
+    je white
+    mov eax, 0
+    jmp done
+  white:
+    mov eax, 0ffffffh
+  done:
+
+** lines every 10 pix
+
+    mov eax, xi
+    mov edx, 0
+    mov ebx, 10
+    div ebx
+    cmp edx, 0
+    je white
+    mov eax, 0
+    jmp done
+  white:
+    mov eax, 0ffffffh
+  done:
+
+** full circle
+
+    sub xi, 400
+    sub yi, 300
+    mov eax, xi
+    mov ecx, eax
+    mul ecx
+    mov ebx, eax
+    mov eax, yi
+    mov ecx, eax
+    mul ecx
+    add ebx, eax
+    cmp ebx, 20000
+    jg black
+    mov eax, 0ff0000h 
+    jmp done
+  black:
+    mov eax, 0ffffffh
+  done:
+
+** chess board
+
+    mov eax, xi
+    mov edx, 0
+    mov ebx, 40
+    div ebx
+    cmp edx, 20
+    jge black
+    mov ecx, 0ffffffh
+    jmp done
+  black:
+    mov ecx, 0
+  done:
+
+    mov eax, yi
+    mov edx, 0
+    mov ebx, 40
+    div ebx
+    cmp edx, 20
+    jge black2
+    mov eax, 0ffffffh
+    jmp done2
+  black2:
+    mov eax, 0
+  done2: 
+    xor eax, ecx   
 
 
 

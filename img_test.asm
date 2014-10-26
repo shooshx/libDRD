@@ -19,24 +19,37 @@ WIN_HEIGHT equ 600
 
     myimg Img {}
     filename BYTE "C:/projects/Gvahim/DirectDrawTest/test1.bmp",0
+    mx DWORD 0
+    my DWORD 0
 .code
 
 
 
 drawFrame PROC fi:DWORD
-    invoke drd_imageDraw, ADDR myimg, fi, fi
+    invoke drd_imageDraw, ADDR myimg, mx, my
     invoke drd_flip
     ret
 drawFrame ENDP
 
-xmain PROTO
+
+mouseHandler PROC wmsg:DWORD, wParam:DWORD, lParam:DWORD
+    mov eax, lParam
+    mov ebx, eax
+    and ebx, 0FFFFh
+    mov mx, ebx
+    shr eax, 16
+    mov my, eax
+    ret
+mouseHandler ENDP
+
+errorHandler PROC emsg:DWORD
+    ret
+errorHandler ENDP
 
 main PROC
     LOCAL inAnim:BOOL 
     LOCAL fi
 
-    ;invoke xmain
-    ;ret
 
     mov inAnim, 0
     invoke drd_init, WIN_WIDTH, WIN_HEIGHT, TRUE
@@ -45,6 +58,9 @@ main PROC
     invoke drd_imageSetTransparent, ADDR myimg, 0ffffffh
 
     ;invoke drd_imageLoadResource, 101, ADDR myimg
+
+    invoke drd_setMouseHandler, mouseHandler
+    invoke drd_setErrorHandler, errorHandler
 
     mov fi, 0  ; frame count
   frameLoop:
