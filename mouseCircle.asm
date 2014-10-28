@@ -18,12 +18,31 @@ WIN_HEIGHT equ 600
     caption BYTE "Draw",0
     msg BYTE "Done",0
 
+    mx DWORD 0
+    my DWORD 0
 .code
 
 getPixelColor PROC xi:DWORD, yi:DWORD, fi:DWORD
 ;--------------------------------------------------------------
+    mov eax, mx
+    sub xi, eax ;400
+    mov eax, my
+    sub yi, eax ;300
     mov eax, xi
-    add eax, yi
+    mov ecx, eax
+    mul ecx
+    mov ebx, eax
+    mov eax, yi
+    mov ecx, eax
+    mul ecx
+    add ebx, eax
+
+    mov eax, ebx
+    mov edx, 0
+    mov ebx, 50
+    div ebx
+    shl eax, 16
+    or eax, 0ffh
 
 ;============================================================
     ret
@@ -69,11 +88,23 @@ drawFrame PROC fi:DWORD
     ret
 drawFrame ENDP
 
+mouseHandler PROC wmsg:DWORD, wParam:DWORD, lParam:DWORD
+    ; get the coordinates from lParam
+    mov eax, lParam
+    and eax, 0ffffh
+    mov mx, eax
+    mov eax, lParam
+    shr eax, 16
+    mov my, eax
+    ret
+mouseHandler ENDP
+
 main PROC
     LOCAL inAnim:BOOL 
     LOCAL fi
     mov inAnim, 0
     invoke drd_init, WIN_WIDTH, WIN_HEIGHT, TRUE
+    invoke drd_setMouseHandler, mouseHandler
 
     mov fi, 0  ; frame count
   frameLoop:
@@ -84,7 +115,7 @@ main PROC
 
     cmp inAnim, 0
     jne testAnim
-    invoke MessageBox, 0, ADDR msg, ADDR caption, MB_OK
+    invoke MessageBox, 0, ADDR msg, ADDR caption, MB_YESNO
     mov inAnim, eax
   testAnim:
     inc fi

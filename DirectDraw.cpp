@@ -1,14 +1,24 @@
 #include <windows.h>
-#include <ddraw.h>
 #include <iostream>
+
+#include "drd.h"
+#include <ddraw.h>
+
+
+// define it again here so that we would not have a dependency in ddraw.lib
+const GUID MY_IID_IDirectDraw7 = { 0x15e65ec0,0x3b9c,0x11d2,0xb9,0x2f,0x00,0x60,0x97,0x97,0xea,0x5b };
 
 
 using namespace std;
 
 extern "C" {
 
-#pragma comment (lib, "ddraw.lib")
-#pragma comment (lib, "dxguid.lib")
+//#pragma comment (lib, "ddraw.lib")
+//#pragma comment (lib, "dxguid.lib")
+
+static HMODULE g_ddrawModule = NULL;
+typedef HRESULT(WINAPI *TDirectDrawCreateEx)(GUID*, LPVOID*, REFIID, IUnknown*);
+TDirectDrawCreateEx pDirectDrawCreateEx;
 
 static HWND g_hMainWnd = NULL;
 static IDirectDraw7* g_pDD = NULL;        // DirectDraw object
@@ -16,23 +26,12 @@ static IDirectDrawSurface7* g_pDDSFront = NULL;  // DirectDraw fronbuffer surfac
 static IDirectDrawSurface7* g_pDDSBack = NULL;   // DirectDraw backbuffer surface
 static IDirectDrawClipper* g_clipper = NULL;
 static bool g_isWindowed = false;
-static DWORD g_wndWidth = 0, g_wndHeight = 0;
+static DWORD g_wndWidth = 0, g_wndHeight = 0, g_srfPixelBytes = 0;
 static void(__stdcall *g_keyHandler)(DWORD) = NULL;
 static void(__stdcall *g_mouseHandler)(DWORD, DWORD, DWORD) = NULL;
 static void(__stdcall *g_errorHandler)(const char* msg) = NULL;
 static bool g_switchingWindow = FALSE;
 
-struct CImg {
-    IDirectDrawSurface7* surface;
-    DWORD width;
-    DWORD height;
-    BOOL hasSrcKey;  // was there a transparency color set
-};
-
-struct CPixelPaint {
-    DWORD* buf;
-    DWORD pitch; // in bytes
-};
 
 void msgError(const char* msg) {
     if (g_errorHandler != NULL) {
@@ -192,7 +191,7 @@ bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height)
 
     // attach the clipper to the primary surface
     ddrval = g_pDDSFront->SetClipper(g_clipper);
-    if( ddrval != DD_OK )
+    if (ddrval != DD_OK)
         return false;
 
     ZeroMemory(&ddsd, sizeof(ddsd));
@@ -206,6 +205,13 @@ bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height)
     ddrval = g_pDD->CreateSurface(&ddsd, &g_pDDSBack, NULL);
     if (ddrval != DD_OK)
         return false;
+
+    DDPIXELFORMAT pf;
+    pf.dwSize = sizeof(pf);
+    ddrval = g_pDDSBack->GetPixelFormat(&pf);
+    if (ddrval != DD_OK)
+        return false;
+    g_srfPixelBytes = pf.dwRGBBitCount / 8;
 
     return true;
 }
@@ -275,6 +281,19 @@ void cleanUp()
 
 bool __stdcall drd_init(DWORD width, DWORD height, BOOL isWindow) 
 {
+    if (g_ddrawModule == NULL) {
+        g_ddrawModule = LoadLibraryW(L"DDRAW.DLL");
+        if (g_ddrawModule == NULL) {
+            msgError("Failing loading ddraw.dll");
+            return false;
+        }
+        pDirectDrawCreateEx = (TDirectDrawCreateEx)GetProcAddress(g_ddrawModule, "DirectDrawCreateEx");
+        if (pDirectDrawCreateEx == NULL) {
+            msgError("Failing GetProcAdddress DirectDrawCreateEx");
+            return false;
+        }
+    }
+
     if (g_hMainWnd != NULL) {
         g_switchingWindow = true; // prevent window destruction from quitting
         cleanUp();
@@ -286,7 +305,7 @@ bool __stdcall drd_init(DWORD width, DWORD height, BOOL isWindow)
         return false;
     }
  
-    HRESULT ddrval = DirectDrawCreateEx(NULL, (VOID**)&g_pDD, IID_IDirectDraw7, NULL);
+    HRESULT ddrval = pDirectDrawCreateEx(NULL, (VOID**)&g_pDD, MY_IID_IDirectDraw7, NULL);
     if (ddrval != DD_OK) {
         msgError("Could start DirectX engine in your computer.\nMake sure you have at least version 7 of DirectX installed.");
         return false;
@@ -351,6 +370,7 @@ void __stdcall drd_pixelsBegin(CPixelPaint* pp) {
     checkHr(hr, "Failed Lock");
     pp->buf = (DWORD*)ddsd.lpSurface;
     pp->pitch = ddsd.lPitch;
+    pp->bytesPerPixel = g_srfPixelBytes;
 }
 
 // very slow, do not use
@@ -363,10 +383,10 @@ void __stdcall drd_pixelsEnd() {
     checkHr(hr, "Failed Unlock");
 }
 
-void __stdcall drd_pixelsClear() {
+void __stdcall drd_pixelsClear(DWORD color) {
     DDBLTFX fx;
     fx.dwSize = sizeof(fx);
-    fx.dwFillColor = 0;
+    fx.dwFillColor = color;
     HRESULT ddrval = g_pDDSBack->Blt(NULL, NULL, NULL, DDBLT_WAIT | DDBLT_COLORFILL, &fx);
     checkHr(ddrval, "clear failed Blt");
 }

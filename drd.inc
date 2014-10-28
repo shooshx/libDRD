@@ -8,6 +8,7 @@ drd_init PROTO STDCALL wdth:DWORD, heght:DWORD, isWindow:BOOL
 PixelPaint STRUCT
     bufPtr DWORD ?   ; address for the start of the buffer
     pitch  DWORD ?   ; how much to add to bufPtr to get to the next scan line
+    bytesPerPixel DWORD ?  ; number of bytes per pixel the draw surface has (depends on windows display settings, can be 2 or 4)
 PixelPaint ENDS
 
 ; lock the back surface for painting
@@ -18,7 +19,7 @@ drd_pixelsBegin PROTO pp:DWORD
 drd_pixelsEnd PROTO
 
 ; fill the back buffer in black
-drd_pixelsClear PROTO
+drd_pixelsClear PROTO color:DWORD
 
 ; flip display and back buffers
 drd_flip PROTO
