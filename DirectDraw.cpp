@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <iostream>
+#include <fstream>
 
 #include "drd.h"
 #include <ddraw.h>
@@ -97,7 +98,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     } // switch
 
-    return DefWindowProc(hWnd, message, wParam, lParam);
+    LRESULT ret = DefWindowProc(hWnd, message, wParam, lParam);
+    return ret;
 } 
 
 void __stdcall drd_setKeyHandler(void(__stdcall *callback)(DWORD) ) {
@@ -491,15 +493,21 @@ void __stdcall drd_imageDelete(CImg* img) {
 }
 
 
-
-void printFps() 
+void __stdcall drd_printFps() 
 {
     static int frameCount = 0;
     static DWORD lastTime = 0;
+    
+
     ++frameCount;
     DWORD time = GetTickCount();
-    if (time - lastTime > 1000) {
-        //cout << frameCount << " fps" << endl;
+    if (time - lastTime > 1000) 
+    {
+        ofstream fpsf("c:/temp/drd_fps.txt", ios::out | ios::app | ios::ate);
+        if (!fpsf.good()) 
+            return;
+
+        fpsf << frameCount << " fps" << endl;
         lastTime = time;
         frameCount = 0;
     }
@@ -570,7 +578,7 @@ void processIdle()
 
     moveImg();
 
-    printFps();
+    drd_printFps();
 }
 
 BOOL __stdcall drd_processMessages() {

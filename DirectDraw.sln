@@ -3,11 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "drd", "drd.vcxproj", "{8F4E8432-7005-4DF7-81D8-6AD1493D8F00}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "myPong", "myPong.vcxproj", "{5CA41EA6-8C02-4FB9-998A-8198031C1F64}"
-	ProjectSection(ProjectDependencies) = postProject
-		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00} = {8F4E8432-7005-4DF7-81D8-6AD1493D8F00}
-	EndProjectSection
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "frame_draw", "frame_draw.vcxproj", "{001AB0BA-47E0-4454-AD54-F640656574D6}"
 	ProjectSection(ProjectDependencies) = postProject
 		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00} = {8F4E8432-7005-4DF7-81D8-6AD1493D8F00}
@@ -23,10 +18,6 @@ Global
 		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00}.Debug|Win32.Build.0 = Debug|Win32
 		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00}.Release|Win32.ActiveCfg = Release|Win32
 		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00}.Release|Win32.Build.0 = Release|Win32
-		{5CA41EA6-8C02-4FB9-998A-8198031C1F64}.Debug|Win32.ActiveCfg = Debug|Win32
-		{5CA41EA6-8C02-4FB9-998A-8198031C1F64}.Debug|Win32.Build.0 = Debug|Win32
-		{5CA41EA6-8C02-4FB9-998A-8198031C1F64}.Release|Win32.ActiveCfg = Release|Win32
-		{5CA41EA6-8C02-4FB9-998A-8198031C1F64}.Release|Win32.Build.0 = Release|Win32
 		{001AB0BA-47E0-4454-AD54-F640656574D6}.Debug|Win32.ActiveCfg = Debug|Win32
 		{001AB0BA-47E0-4454-AD54-F640656574D6}.Debug|Win32.Build.0 = Debug|Win32
 		{001AB0BA-47E0-4454-AD54-F640656574D6}.Release|Win32.ActiveCfg = Release|Win32

@@ -64,3 +64,6 @@ drd_imageSetTransparent PROTO pimg:DWORD, color:DWORD
 
 ; destroy the Img object
 drd_imageDelete PROTO pimg:DWORD
+
+
+drd_printFps PROTO

@@ -23,8 +23,10 @@ WIN_HEIGHT equ 600
     four REAL4 4.0
 ;NUM_COLORS equ 6
     ;colors DWORD 0000ffh, 00ff00h, 0ff0000h, 00ffffh, 0ffff00h, 0ff00ffh
-NUM_COLORS equ 10
+NUM_COLORS equ 10 ; red yellow
     colors DWORD 0ffff00h, 0ffe200h, 0ffc600h, 0ffaa00h, 0ff8d00h, 0ff7100h, 0ff5500h, 0ff3800h, 0ff1c00h, 0ff0000h
+;NUM_COLORS equ 30 ; rainbow
+    ;colors DWORD 0ff0000h, 0ff0034h, 0ff0069h, 0ff009eh, 0ff00d3h, 0f600ffh, 0c100ffh, 08c00ffh, 05700ffh, 02300ffh, 00011ffh, 00046ffh, 0007bffh, 000afffh, 000e4ffh, 000ffe4h, 000ffafh, 000ff7bh, 000ff46h, 000ff11h, 023ff00h, 057ff00h, 08cff00h, 0c1ff00h, 0f6ff00h, 0ffd300h, 0ff9e00h, 0ff6900h, 0ff3400h, 0ff0000h
     twoPfive REAL4 2.5
     onePfive REAL4 1.5
 .code

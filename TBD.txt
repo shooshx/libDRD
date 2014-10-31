@@ -1,0 +1,6 @@
+sinuses example
+transparent window to show desktop?
+use values from previous frames?
+click through window?
+flags for init instead of BOOL
+native respolution full screen
