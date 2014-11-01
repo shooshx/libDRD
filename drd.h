@@ -13,9 +13,17 @@ struct CPixelPaint {
     DWORD* buf;
     DWORD pitch; // in bytes
     DWORD bytesPerPixel;
+    DWORD cheight;
+    DWORD cwidth;
 };
 
-bool __stdcall drd_init(DWORD width, DWORD height, BOOL isWindow);
+#define INIT_WINDOW 0
+#define INIT_FULLSCREEN 1
+#define INIT_WINDOWFULL 2
+#define INIT_INPUT_FALLTHROUGH 4
+
+bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags);
+void __stdcall drd_windowSetTranslucent(BYTE alpha);
 
 void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) );
 void __stdcall drd_setKeyHandler(void(__stdcall *callback)(DWORD) );
@@ -33,6 +41,7 @@ void __stdcall drd_imageSetTransparent(CImg* img, DWORD color);
 void __stdcall drd_imageDraw(CImg* img, int x, int y);
 
 BOOL __stdcall drd_processMessages();
+void __stdcall drd_printFps(const char* filename);
 
 
 }

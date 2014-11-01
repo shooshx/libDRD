@@ -4,7 +4,7 @@ typedef unsigned int uint;
 double sin(double);
 
 // nice sinus coloring
-uint __stdcall getPixelColor(uint xi, uint yi, uint fi)
+uint __stdcall getPixelColorX(uint xi, uint yi, uint fi)
 {
     double fx = (double)(xi + fi) / 50.0;
     double sx = (sin(fx) + 1) * 128.0;

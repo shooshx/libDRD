@@ -48,11 +48,11 @@ errorHandler ENDP
 
 main PROC
     LOCAL inAnim:BOOL 
-    LOCAL fi
+    LOCAL fi:DWORD
 
 
     mov inAnim, 0
-    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, TRUE
+    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOW
 
     invoke drd_imageLoadFile, ADDR filename, ADDR myimg
     invoke drd_imageSetTransparent, ADDR myimg, 0ffffffh

@@ -56,12 +56,12 @@ drawFrame PROC fi:DWORD
     
     add esi, pp.bytesPerPixel
     inc ecx
-    cmp ecx, WIN_WIDTH
+    cmp ecx, pp.cwidth
     jne pixelLoop
 
     add edi, pp.pitch
     inc edx
-    cmp edx, WIN_HEIGHT
+    cmp edx, pp.cheight
     jne lineLoop
 
     invoke drd_pixelsEnd
@@ -71,9 +71,10 @@ drawFrame ENDP
 
 main PROC
     LOCAL inAnim:BOOL 
-    LOCAL fi
+    LOCAL fi:DWORD
+
     mov inAnim, 0
-    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, TRUE
+    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOW
 
     mov fi, 0  ; frame count
   frameLoop:

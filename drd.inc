@@ -2,13 +2,26 @@
 ; initialize a window or full screen display
 ; width & height in pixels
 ; can be called multiple times to change view
-drd_init PROTO STDCALL wdth:DWORD, heght:DWORD, isWindow:BOOL
+drd_init PROTO STDCALL wdth:DWORD, heght:DWORD, flags:DWORD
+
+; - flags needs to be one of the following:
+; normal window with a frame
+INIT_WINDOW equ 0
+; sets the screen resolution and take over the screen
+INIT_FULLSCREEN equ 1
+; windown which covers the entive screen, don't take over the screen, width, heigt are ignored
+INIT_WINDOWFULL equ 2
+; - and can have any of the following ored
+; set the created window as top most and allow mouse events to fall through it to other applications
+INIT_INPUT_FALLTHROUGH equ 4
 
 ; used for drawing pixles using direct memory access
 PixelPaint STRUCT
     bufPtr DWORD ?   ; address for the start of the buffer
     pitch  DWORD ?   ; how much to add to bufPtr to get to the next scan line
     bytesPerPixel DWORD ?  ; number of bytes per pixel the draw surface has (depends on windows display settings, can be 2 or 4)
+    cheight DWORD ? 
+    cwidth DWORD ?
 PixelPaint ENDS
 
 ; lock the back surface for painting
@@ -41,6 +54,9 @@ drd_setErrorHandler PROTO func:DWORD
 ; this function should be called in a loop
 drd_processMessages PROTO
 
+; set window to be translucent, alpha between 0 to 255
+drd_windowSetTranslucent PROTO alpha:BYTE
+
 
 ; holds information about a loaded image
 Img STRUCT
@@ -65,5 +81,6 @@ drd_imageSetTransparent PROTO pimg:DWORD, color:DWORD
 ; destroy the Img object
 drd_imageDelete PROTO pimg:DWORD
 
-
-drd_printFps PROTO
+; each second, print the frame-per-second count
+; append text to filename. if filename is NULL, the default file is c:/temp/drd_fps.txt
+drd_printFps PROTO filename:DWORD

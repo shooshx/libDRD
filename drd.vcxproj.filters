@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="drd.h" />
+    <ClInclude Include="mcrt.h" />
   </ItemGroup>
 </Project>

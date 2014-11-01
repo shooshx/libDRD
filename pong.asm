@@ -8,6 +8,7 @@ include \masm32\include\user32.inc
 include \masm32\macros\macros.asm
 
 include drd.inc
+includelib drd.lib
 
 .data?
     pp PixelPaint <?>
@@ -22,7 +23,7 @@ include drd.inc
     g_by DWORD 200
     g_bdx DWORD 5
     g_bdy DWORD 5
-    g_isWindow BOOL TRUE
+    g_isWindow BOOL INIT_WINDOW
 .code
 
 handleKey PROTO
@@ -133,12 +134,12 @@ checkBounds PROC vptr:DWORD
 checkBounds ENDP
 
 changeWindowFull PROC
-    cmp g_isWindow, 1
-    je toZero
-    mov g_isWindow, 1
+    cmp g_isWindow, INIT_WINDOW
+    je toFull
+    mov g_isWindow, INIT_WINDOW
     ret
-  toZero:
-    mov g_isWindow, 0
+  toFull:
+    mov g_isWindow, INIT_FULLSCREEN
     ret
 changeWindowFull ENDP
 
@@ -195,7 +196,7 @@ drawRect PROC x:DWORD, y:DWORD, wdth:DWORD, height:DWORD, color:DWORD
   ploop:
     mov edx, color
     mov [eax], edx
-    add eax, 4
+    add eax, pp.bytesPerPixel      ; next pixel
     dec ecx
     jnz ploop
     mov eax, pp.pitch ; move to next line
@@ -208,7 +209,7 @@ drawRect PROC x:DWORD, y:DWORD, wdth:DWORD, height:DWORD, color:DWORD
 drawRect ENDP
 
 draw PROC
-    invoke drd_pixelsClear
+    invoke drd_pixelsClear, 0
     invoke drd_pixelsBegin, ADDR pp
     invoke drawRect, 10, g_y1, 20, 100, 0ffffffffh
     invoke drawRect, 610, g_y2, 20, 100, 0ffffffffh

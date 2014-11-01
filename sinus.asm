@@ -18,42 +18,116 @@ WIN_HEIGHT equ 600
     caption BYTE "Draw",0
     msg BYTE "Done",0
 
-NUM_COLORS_MASK equ 3fh  ; 64 colors
-    colors  DWORD 0ff0000h, 0ff0018h, 0ff0030h, 0ff0048h, 0ff0061h, 0ff0079h, 0ff0091h, 0ff00aah, 0ff00c2h, 0ff00dah, 0ff00f2h, 0f200ffh, 0da00ffh, 0c200ffh, 0aa00ffh, 09100ffh
-    colros2 DWORD 07900ffh, 06100ffh, 04800ffh, 03000ffh, 01800ffh, 00000ffh, 00018ffh, 00030ffh, 00048ffh, 00061ffh, 00079ffh, 00091ffh, 000a9ffh, 000c2ffh, 000daffh, 000f2ffh
-    colors3 DWORD 000fff2h, 000ffdah, 000ffc2h, 000ffa9h, 000ff91h, 000ff79h, 000ff61h, 000ff48h, 000ff30h, 000ff18h, 000ff00h, 018ff00h, 030ff00h, 048ff00h, 061ff00h, 079ff00h 
-    colors4 DWORD 091ff00h, 0a9ff00h, 0c2ff00h, 0daff00h, 0f2ff00h, 0fff200h, 0ffda00h, 0ffc200h, 0ffaa00h, 0ff9100h, 0ff7900h, 0ff6100h, 0ff4800h, 0ff3000h, 0ff1800h, 0ff0000h    
+NUM_SIN equ 64
+    sinData DWORD 128, 140, 152, 165, 176, 188, 199, 209, 218, 226, 234, 240, 246, 250, 253, 255, 256, 255, 253, 250, 246, 240, 234, 226, 218, 209, 199, 188, 176, 165, 152
+    sinData2 DWORD 140, 128, 115, 103, 90, 79, 67, 56, 46, 37, 29, 21, 15, 9, 5, 2, 0, 0, 0, 2, 5, 9, 15, 21, 29, 37, 46, 56, 67, 79, 90, 103, 115
 
     mx DWORD 0
     my DWORD 0
 .code
 
-getPixelColor PROC xi:DWORD, yi:DWORD, fi:DWORD
+getColElement PROC xi:DWORD, yi:DWORD, fi:DWORD, s1:DWORD, s2:DWORD
 ;--------------------------------------------------------------
     LOCAL v:DWORD
-    ; ebx = (xi-mx)^2 + (yi-my)^2
-    mov eax, mx
-    sub xi, eax ;400
-    mov eax, my
-    sub yi, eax ;300
-    mov eax, xi
-    mul eax
-    mov ebx, eax
-    mov eax, yi
-    mul eax
-    add ebx, eax
+    LOCAL hfi:DWORD
+    LOCAL rfi:DWORD
 
+    ; setup constants
+    mov eax, fi
+    mov rfi, eax
+    cmp s1, 1
+    jne @F
+    neg rfi
+    add rfi, 20
+  @@:
+    mov eax, fi
+    shr eax, 1
+    mov hfi, eax
+    cmp s2, 1
+    jne @F
+    neg hfi
+    add hfi, 70
+  @@:
+
+    mov edi, 0
+
+    ; add sin(xi/2) to blue
+    mov eax, xi
+      add eax, rfi
+    shr eax, 1  
+    and eax, 03Fh
+    mov edi, sinData[eax * 4]  ; result accumulated to edi  [0-255]
+
+    ; add sin(yi/2) to blue
+    mov eax, yi
+      add eax, hfi
+    shr eax, 1
+    and eax, 03Fh
+    add edi, sinData[eax * 4]   ; edi [0-512]
+
+    ; add sin(xi+yi)
+    mov eax, xi
+    add eax, yi
+      sub eax, rfi
+    shr eax, 1
+    and eax, 03fh
+    add edi, sinData[eax * 4]
+   
+    ; add sin(xi-yi)
+    mov eax, xi
+    sub eax, yi
+      sub eax, hfi
+    shr eax, 1
+    and eax, 03fh
+    add edi, sinData[eax * 4]
+
+    ; ebx = (xi-400)^2 + (yi-300)^2
+    mov eax, xi
+    sub eax, mx
+    sar eax, 2   ; shift with sign, scale frequecy
+    mul eax
+    mov ebx, eax ; ebx = xi*xi
+    mov eax, yi
+    sub eax, my
+    sar eax, 1   ; scale frequency
+    mul eax
+    add ebx, eax 
     ; eax = sqrt(ebx)
     mov v, ebx
     fild v
     fsqrt
     fistp v
     mov eax, v
+    and eax, 03fh
+    add edi, sinData[eax * 4] ; edi [0-255*4]
 
-    sub eax, fi
-    and eax, NUM_COLORS_MASK  ; reminder from division by 64
+    shr edi, 1   ; scale back to [0-512]
 
-    mov eax, colors[eax * 4]
+    mov eax, edi
+
+;============================================================
+    ret
+getColElement ENDP
+
+getPixelColor PROC xi:DWORD, yi:DWORD, fi:DWORD
+;============================================================
+    invoke getColElement, xi, yi, fi, 0, 0
+    mov ebx, eax
+    push ebx
+      invoke getColElement, xi, yi, fi, 1, 0
+    pop ebx
+    shl eax, 8
+    or ebx, eax
+    push ebx
+      invoke getColElement, xi, yi, fi, 0, 1
+    pop ebx
+    shl eax, 16
+    or ebx, eax
+    shl eax, 8
+    or ebx, eax
+
+    rol eax, 4
+    mov eax, ebx
 
 ;============================================================
     ret
@@ -86,12 +160,12 @@ drawFrame PROC fi:DWORD
     
     add esi, pp.bytesPerPixel
     inc ecx
-    cmp ecx, pp.cwidth
+    cmp ecx, WIN_WIDTH
     jne pixelLoop
 
     add edi, pp.pitch
     inc edx
-    cmp edx, pp.cheight
+    cmp edx, WIN_HEIGHT
     jne lineLoop
 
     invoke drd_pixelsEnd

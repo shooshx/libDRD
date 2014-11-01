@@ -55,7 +55,7 @@ drawFrame PROC
 drawFrame ENDP
 
 main PROC
-    invoke drd_init, 800, 600, TRUE
+    invoke drd_init, 800, 600, INIT_WINDOW
 
     call drawFrame
 

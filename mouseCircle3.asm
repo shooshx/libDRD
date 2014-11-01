@@ -99,35 +99,37 @@ drawFrame PROC fi:DWORD
     ret
 drawFrame ENDP
 
-mouseHandler PROC wmsg:DWORD, wParam:DWORD, lParam:DWORD
-    ; get the coordinates from lParam
-    mov eax, lParam
-    and eax, 0ffffh
+sampleMouse PROC
+    LOCAL pnt:POINT
+    invoke GetCursorPos, addr pnt
+    mov eax, pnt.x
     mov mx, eax
-    mov eax, lParam
-    shr eax, 16
+    mov eax, pnt.y
     mov my, eax
     ret
-mouseHandler ENDP
+sampleMouse ENDP
 
 main PROC
     LOCAL inAnim:BOOL 
     LOCAL fi:DWORD
     mov inAnim, 0
-    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOW
-    invoke drd_setMouseHandler, mouseHandler
+    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOWFULL or INIT_INPUT_FALLTHROUGH
+    invoke drd_windowSetTranslucent, 70
 
     mov fi, 0  ; frame count
   frameLoop:
     invoke drd_processMessages
     cmp eax, 0
     je fin
+    ; we need to sample the mouse and not rely on the handler since the input messages fall through
+    invoke sampleMouse 
     invoke drawFrame, fi
     ;invoke drd_printFps
 
     cmp inAnim, 0
     jne testAnim
-    invoke MessageBox, 0, ADDR msg, ADDR caption, MB_YESNO
+    ;invoke MessageBox, 0, ADDR msg, ADDR caption, MB_YESNO
+    mov eax, IDYES
     mov inAnim, eax
   testAnim:
     inc fi

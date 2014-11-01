@@ -7,7 +7,6 @@ include \masm32\include\kernel32.inc
 include \masm32\include\user32.inc
 include \masm32\macros\macros.asm
 
-
 include drd.inc
 includelib drd.lib
 
@@ -24,10 +23,13 @@ WIN_HEIGHT equ 600
 
 getPixelColor PROC xi:DWORD, yi:DWORD, fi:DWORD
 ;--------------------------------------------------------------
+    ; center around mouse
     mov eax, mx
     sub xi, eax ;400
     mov eax, my
     sub yi, eax ;300
+
+    ; ebx = xi*xi + yi*yi
     mov eax, xi
     mov ecx, eax
     mul ecx
@@ -75,12 +77,12 @@ drawFrame PROC fi:DWORD
     
     add esi, pp.bytesPerPixel
     inc ecx
-    cmp ecx, WIN_WIDTH
+    cmp ecx, pp.cwidth
     jne pixelLoop
 
     add edi, pp.pitch
     inc edx
-    cmp edx, WIN_HEIGHT
+    cmp edx, pp.cheight
     jne lineLoop
 
     invoke drd_pixelsEnd
@@ -101,9 +103,9 @@ mouseHandler ENDP
 
 main PROC
     LOCAL inAnim:BOOL 
-    LOCAL fi
+    LOCAL fi:DWORD
     mov inAnim, 0
-    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, TRUE
+    invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOW
     invoke drd_setMouseHandler, mouseHandler
 
     mov fi, 0  ; frame count
@@ -116,6 +118,7 @@ main PROC
     cmp inAnim, 0
     jne testAnim
     invoke MessageBox, 0, ADDR msg, ADDR caption, MB_YESNO
+    ;mov eax, IDYES
     mov inAnim, eax
   testAnim:
     inc fi
