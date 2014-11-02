@@ -354,6 +354,12 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
         msgError("Failed creating window");
         return false;
     }
+/*
+    HDC dc = GetDC(g_hMainWnd);
+    SetDCBrushColor(dc, 0x0000ff);
+    RECT r = {0,0,100,100};
+    FillRect(dc, &r, (HBRUSH)GetStockObject(DC_BRUSH));
+*/
  
     HRESULT ddrval = pDirectDrawCreateEx(NULL, (VOID**)&g_pDD, MY_IID_IDirectDraw7, NULL);
     if (ddrval != DD_OK) {
@@ -379,6 +385,7 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     if (ddrval != DD_OK)
         return false;
     g_srfPixelBytes = pf.dwRGBBitCount / 8;
+
 
     g_wndWidth = width;
     g_wndHeight = height;
@@ -413,8 +420,25 @@ void __stdcall drd_flip()
         OffsetRect(&rcRectDest, p.x, p.y);
         RECT rcRectSrc;
         SetRect(&rcRectSrc, 0, 0, g_wndWidth, g_wndHeight);
-        HRESULT ddrval = g_pDDSFront->Blt( &rcRectDest, g_pDDSBack, &rcRectSrc, DDBLT_WAIT, NULL);
-        checkHr(ddrval, "Failed win flip");
+
+       /* DDBLTFX fx; no need for this
+        mZeroMemory(&fx, sizeof(fx));
+        fx.dwSize = sizeof(fx);
+        fx.dwDDFX = DDBLTFX_NOTEARING;*/
+
+        // BltFast can't clip, so using Blt
+
+        DWORD flags = DDBLT_WAIT;
+        
+     /*   flags != DDBLT_KEYSRC;
+        DDCOLORKEY ddck;
+        ddck.dwColorSpaceLowValue = 0x00ff00;
+        ddck.dwColorSpaceHighValue = 0x00ff00;
+        HRESULT hr = g_pDDSBack->SetColorKey(DDCKEY_SRCBLT, &ddck);
+        hr = g_pDDSFront->SetColorKey(DDCKEY_SRCBLT, &ddck);
+       */ 
+        HRESULT ddrval = g_pDDSFront->Blt( &rcRectDest, g_pDDSBack, &rcRectSrc, flags, NULL); // | DDBLT_DDFX, &fx);
+        checkHr(ddrval, "Failed win flip"); 
     } 
     else {
         HRESULT ddrval = g_pDDSFront->Flip(NULL, DDFLIP_WAIT);
@@ -461,22 +485,28 @@ void __stdcall drd_pixelsClear(DWORD color) {
     checkHr(ddrval, "clear failed Blt");
 }
 
-void __stdcall drd_imageDraw(CImg* img, int x, int y) {
+void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int srcY, int srcWidth, int srcHeight) {
     CHECK_INIT(img);
     RECT srcRect;
-    SetRect(&srcRect, 0, 0, img->width, img->height);
+    SetRect(&srcRect, srcX, srcY, srcX+srcWidth, srcY+srcHeight);
     DWORD flags = DDBLTFAST_WAIT;
     if (img->hasSrcKey)
         flags |= DDBLTFAST_SRCCOLORKEY;
-    HRESULT ddrval = g_pDDSBack->BltFast(x, y, img->surface, &srcRect, flags); //DDBLTFAST_NOCOLORKEY
+    HRESULT ddrval = g_pDDSBack->BltFast(dstX, dstY, img->surface, &srcRect, flags); //DDBLTFAST_NOCOLORKEY
     checkHr(ddrval, "imageDraw failed BltFast");
 }
+
+void __stdcall drd_imageDraw(CImg* img, int dstX, int dstY) {
+    CHECK_INIT(img);
+    drd_imageDrawCrop(img, dstX, dstY, 0, 0, img->width, img->height);
+}
+
+
 
 
 static bool imageLoad(const char* filename, DWORD id, CImg* ret)
 {
     CHECKR_INIT(ret, false);
-    CHECKR_INIT(filename, false);
 
     BITMAP bm;
     IDirectDrawSurface7 *pdds;
@@ -540,6 +570,7 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
 }
 
 bool __stdcall drd_imageLoadFile(const char* filename, CImg* ret) {
+    CHECKR_INIT(filename, false);   
     return imageLoad(filename, 0, ret);
 }
 
@@ -622,7 +653,6 @@ void drawRect()
 }
 
 
-
 static DWORD x = 0, y = 0, dx = 1, dy = 1;
 static CImg g_img;
 
@@ -659,7 +689,7 @@ void processIdle()
 
     drd_flip();
 
-    if (!g_isWindowed) {
+    if (!g_isWindowed) { // in full screen need to draw the same rect on both buffers
         drawRect();
         //drawImage(&g_img, x, y);
     }
@@ -684,9 +714,11 @@ BOOL __stdcall drd_processMessages() {
     return TRUE;
 }
 
+
+
 int __stdcall xmain() //int argc, char* argv[])
 {
-    if (!drd_init(640, 480, TRUE))
+    if (!drd_init(640, 480, INIT_WINDOW))
         return 0;
 
     drd_imageLoadFile("C:/projects/Gvahim/DirectDrawTest/test1.bmp", &g_img);

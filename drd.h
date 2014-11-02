@@ -6,7 +6,7 @@ struct CImg {
     IDirectDrawSurface7* surface;
     DWORD width;
     DWORD height;
-    BOOL hasSrcKey;  // was there a transparency color set
+    DWORD hasSrcKey;  // was there a transparency color set
 };
 
 struct CPixelPaint {
@@ -38,7 +38,8 @@ bool __stdcall drd_imageLoadFile(const char* filename, CImg* ret);
 bool __stdcall drd_imageLoadResource(DWORD id, CImg* ret);
 void __stdcall drd_imageDelete(CImg* img);
 void __stdcall drd_imageSetTransparent(CImg* img, DWORD color);
-void __stdcall drd_imageDraw(CImg* img, int x, int y);
+void __stdcall drd_imageDraw(CImg* img, int dstX, int dstY);
+void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int srcY, int srcWidth, int srcHeight);
 
 BOOL __stdcall drd_processMessages();
 void __stdcall drd_printFps(const char* filename);

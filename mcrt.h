@@ -1,6 +1,8 @@
 
 // implementation of some CRT functions I need so drd would not depend in the CRT dlls.
 
+extern "C" {
+
 void mZeroMemory(void* dst, size_t sz) {
     __asm { // doing this in assembly prevents the optimized from replacing it with CRT memset
         mov ecx, sz
@@ -64,9 +66,12 @@ void mstrcat_s(char* dst, size_t dstsz, const char* src) {
  }
 
 unsigned int g_randState = 0;
-void msrand(unsigned int s) {
+void __stdcall msrand(unsigned int s) {
     g_randState = s;
 }
-int mrand() {
-    return (((g_randState * 214013L + 2531011L) >> 16) & 0x7fff);
+int __stdcall mrand() {
+    g_randState = g_randState * 214013L + 2531011L;
+    return (g_randState >> 16) & 0x7fff;
+}
+
 }

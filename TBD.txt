@@ -1,6 +1,6 @@
 
 
-use values from previous frames?
+window color-key
 
 
 alpha blt http://msdn.microsoft.com/en-us/library/aa915435.aspx

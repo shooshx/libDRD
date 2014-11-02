@@ -18,7 +18,7 @@ WIN_HEIGHT equ 600
     msg BYTE "Done",0
 
     myimg Img {}
-    filename BYTE "C:/projects/Gvahim/DirectDrawTest/test1.bmp",0
+
     mx DWORD 0
     my DWORD 0
 .code
@@ -27,6 +27,7 @@ WIN_HEIGHT equ 600
 
 drawFrame PROC fi:DWORD
     invoke drd_imageDraw, ADDR myimg, mx, my
+    ;invoke drd_imageDrawCrop, ADDR myimg, mx, my, 20,0,20,100
     invoke drd_flip
     ret
 drawFrame ENDP
@@ -54,8 +55,8 @@ main PROC
     mov inAnim, 0
     invoke drd_init, WIN_WIDTH, WIN_HEIGHT, INIT_WINDOW
 
-    invoke drd_imageLoadFile, ADDR filename, ADDR myimg
-    invoke drd_imageSetTransparent, ADDR myimg, 0ffffffh
+    invoke drd_imageLoadResource, 101, ADDR myimg
+    invoke drd_imageSetTransparent, ADDR myimg, 000ff00h
 
     ;invoke drd_imageLoadResource, 101, ADDR myimg
 

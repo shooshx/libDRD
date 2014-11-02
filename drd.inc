@@ -8,8 +8,9 @@ drd_init PROTO STDCALL wdth:DWORD, heght:DWORD, flags:DWORD
 ; normal window with a frame
 INIT_WINDOW equ 0
 ; sets the screen resolution and take over the screen
+; notice: in this mode, you must redraw the entire screen in each frame from scratch (since there are two separate buffers)
 INIT_FULLSCREEN equ 1
-; windown which covers the entive screen, don't take over the screen, width, heigt are ignored
+; windown which covers the entive screen, don't take over the screen, width, height are ignored
 INIT_WINDOWFULL equ 2
 ; - and can have any of the following ored
 ; set the created window as top most and allow mouse events to fall through it to other applications
@@ -63,6 +64,7 @@ Img STRUCT
     surface DWORD ?
     iwidth DWORD ?
     iheight DWORD ?
+    hasSrcKey DWORD ?
 Img ENDS
 
 ; load an image from file `filename` into an Img struct
@@ -72,8 +74,10 @@ drd_imageLoadFile PROTO filename:DWORD, pimg:DWORD
 drd_imageLoadResource PROTO id:DWORD, pimg:DWORD
 
 
-; draw the image on the back buffer. must be outside drd_pixelsBegin
-drd_imageDraw PROTO pimd:DWORD, x:DWORD, y:DWORD
+; draw the image on the back buffer, starting at coord (dstX,dstY). must be outside drd_pixelsBegin
+drd_imageDraw PROTO pimg:DWORD, dstX:DWORD, dstY:DWORD
+; draw the image on the back buffer, take from the image the square [srcX, srcY, srcX+srcWidth, srcY+srcHeight] and put it at coord (dstX,dstY). must be outside drd_pixelsBegin
+drd_imageDrawCrop PROTO pimg:DWORD, dstX:DWORD, dstY:DWORD, srcX:DWORD, srcY:DWORD, srcWidth:DWORD, srcHeight:DWORD
 
 ; set the color which will be interpreted as transparency
 drd_imageSetTransparent PROTO pimg:DWORD, color:DWORD
@@ -84,3 +88,8 @@ drd_imageDelete PROTO pimg:DWORD
 ; each second, print the frame-per-second count
 ; append text to filename. if filename is NULL, the default file is c:/temp/drd_fps.txt
 drd_printFps PROTO filename:DWORD
+
+
+;------- crt replacement functions -----
+mrand PROTO
+msrange PROTO seed:DWORD
