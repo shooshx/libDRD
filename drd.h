@@ -1,4 +1,7 @@
+#include <windows.h>
+
 extern "C" {
+#pragma comment (lib,"drd.lib")
 
 struct IDirectDrawSurface7;
 

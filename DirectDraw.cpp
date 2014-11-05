@@ -334,7 +334,7 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     if (g_ddrawModule == NULL) {
         g_ddrawModule = LoadLibraryW(L"DDRAW.DLL");
         if (g_ddrawModule == NULL) {
-            msgError("Failing loading ddraw.dll");
+            msgErrorV("Failing loading ddraw.dll", GetLastError());
             return false;
         }
         pDirectDrawCreateEx = (TDirectDrawCreateEx)GetProcAddress(g_ddrawModule, "DirectDrawCreateEx");
