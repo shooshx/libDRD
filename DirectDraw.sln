@@ -10,6 +10,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "frame_draw", "frame_draw.vc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpp_frame_draw", "cpp_frame_draw.vcxproj", "{3200890E-B1D6-47A5-B450-B4E9EB879879}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpp_line_turtle", "cpp_line_turtle.vcxproj", "{C5C2F64F-0118-44C9-952C-44B306D8BF8C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8F4E8432-7005-4DF7-81D8-6AD1493D8F00} = {8F4E8432-7005-4DF7-81D8-6AD1493D8F00}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -28,6 +33,10 @@ Global
 		{3200890E-B1D6-47A5-B450-B4E9EB879879}.Debug|Win32.Build.0 = Debug|Win32
 		{3200890E-B1D6-47A5-B450-B4E9EB879879}.Release|Win32.ActiveCfg = Release|Win32
 		{3200890E-B1D6-47A5-B450-B4E9EB879879}.Release|Win32.Build.0 = Release|Win32
+		{C5C2F64F-0118-44C9-952C-44B306D8BF8C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C5C2F64F-0118-44C9-952C-44B306D8BF8C}.Debug|Win32.Build.0 = Debug|Win32
+		{C5C2F64F-0118-44C9-952C-44B306D8BF8C}.Release|Win32.ActiveCfg = Release|Win32
+		{C5C2F64F-0118-44C9-952C-44B306D8BF8C}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

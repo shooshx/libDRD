@@ -23,6 +23,7 @@ PixelPaint STRUCT
     bytesPerPixel DWORD ?  ; number of bytes per pixel the draw surface has (depends on windows display settings, can be 2 or 4)
     cheight DWORD ? 
     cwidth DWORD ?
+    wpitch DWORD ?
 PixelPaint ENDS
 
 ; lock the back surface for painting

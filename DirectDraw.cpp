@@ -9,12 +9,12 @@
 const GUID MY_IID_IDirectDraw7 = { 0x15e65ec0,0x3b9c,0x11d2,0xb9,0x2f,0x00,0x60,0x97,0x97,0xea,0x5b };
 
 
+
 using namespace std;
 
 extern "C" {
 
-//#pragma comment (lib, "ddraw.lib")
-//#pragma comment (lib, "dxguid.lib")
+
 
 static HMODULE g_ddrawModule = NULL;
 typedef HRESULT(WINAPI *TDirectDrawCreateEx)(GUID*, LPVOID*, REFIID, IUnknown*);
@@ -77,6 +77,37 @@ void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
     g_errorHandler = callback;
 }
 
+void handleWmCommand(DWORD notify, HWND hwnd) 
+{
+    static char* buf = NULL;
+    static int buflen = 0;
+
+    CtrlBase* obj = (CtrlBase*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    if (lstrcmpA(obj->type, "EDIT") == 0) {
+        auto that = (EditCtrl*)obj;
+        if (notify ==  EN_CHANGE) {
+            int sz = GetWindowTextLengthA(hwnd);
+            if (buf == NULL || sz > buflen) {
+                LocalFree((HLOCAL)buf);
+                buf = (char*)LocalAlloc(0, sz * 2);
+                buflen = sz * 2;
+            }
+            GetWindowTextA(hwnd, buf, buflen);
+            if (that->textChanged != NULL) {
+                that->textChanged(that->c.id, buf);
+            }
+        }
+    }
+    else if (lstrcmpA(obj->type, "BUTTON") == 0) {
+        auto that = (ButtonCtrl*)obj;
+        if (notify == BN_CLICKED) {
+            if (that->clicked != NULL) {
+                that->clicked(that->c.id);
+            }
+        }
+    }
+
+}
 
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -113,6 +144,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         else if (wParam == SC_MAXIMIZE || wParam == SC_RESTORE) {
             g_minimized = false;
         }
+        break;
+    case WM_COMMAND:  // from controls
+        handleWmCommand(HIWORD(wParam), (HWND)lParam);
+        break;
+    case WM_CTLCOLORBTN: // cause the background of buttons to be black
+        return (LRESULT)GetStockObject(BLACK_BRUSH);
     } // switch
 
     LRESULT ret = DefWindowProc(hWnd, message, wParam, lParam);
@@ -131,6 +168,7 @@ bool checkFlag(DWORD v, DWORD flag) {
 }
 
 
+// width, height are pointer since in INIT_WINDOWFULL they are set according to the desktop
 HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
 {
     bool isFullScreen = checkFlag(flags, INIT_FULLSCREEN);
@@ -157,7 +195,7 @@ HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
     wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
+    wc.cbWndExtra = 0; 
     wc.hInstance = hInst;
     wc.hIcon = LoadIcon(hInst, IDI_APPLICATION);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
@@ -177,7 +215,7 @@ HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
         style = WS_POPUP;
     }
     else if (g_isWindowed) {
-        style = WS_SYSMENU | WS_MINIMIZEBOX;
+        style = WS_SYSMENU | WS_MINIMIZEBOX | WS_OVERLAPPED | WS_CAPTION;
     }
     else {
         exstyle = WS_EX_TOPMOST;
@@ -188,11 +226,17 @@ HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
         exstyle |= WS_EX_TRANSPARENT | WS_EX_TOPMOST;
     }
 
+    RECT adr = { 0, 0, *width, *height };
+    AdjustWindowRect(&adr, style, FALSE); // WS_OVERLAPPEDWINDOW see http://www.directxtutorial.com/Lesson.aspx?lessonid=11-1-4
+    DWORD cwidth = adr.right - adr.left;
+    DWORD cheight = adr.bottom - adr.top;
+
+
     hWnd = CreateWindowExA(
         exstyle, //WS_EX_TOPMOST,
-        "WndClass", "WndName",
+        "WndClass", "drd",
         style, //WS_POPUP,
-        x, y, *width, *height,
+        x, y, cwidth, cheight,
         NULL, NULL, hInst, NULL);
 
 
@@ -410,11 +454,12 @@ void __stdcall drd_flip()
         RECT rcRectDest;
         GetClientRect(g_hMainWnd, &rcRectDest);
 
-        if (rcRectDest.right != g_wndWidth) { // fix window size
+        /*
+        if (rcRectDest.right != g_wndWidth) { // replaced with AdjustRect
             int borderWidth = p.x - gr.left;
             int extraHeight = p.y - gr.top + borderWidth;
             MoveWindow(g_hMainWnd, gr.left, gr.top, g_wndWidth + borderWidth * 2, g_wndHeight + extraHeight, FALSE);
-        }
+        }*/
 
         GetClientRect(g_hMainWnd, &rcRectDest);
         OffsetRect(&rcRectDest, p.x, p.y);
@@ -460,6 +505,7 @@ void __stdcall drd_pixelsBegin(CPixelPaint* pp) {
     pp->bytesPerPixel = g_srfPixelBytes;
     pp->cheight = g_wndHeight;
     pp->cwidth = g_wndWidth;
+    pp->wpitch = pp->pitch / pp->bytesPerPixel;
 }
 
 
@@ -631,6 +677,21 @@ void __stdcall drd_printFps(const char* filename)
         CloseHandle(hf);
     }
 }
+
+
+HWND __stdcall drd_createCtrl(void* vc)
+{
+    auto* c = (CtrlBase*)vc;
+    HWND hw = CreateWindowExA(c->styleex, c->type, c->initText, WS_CHILD | WS_VISIBLE | c->style, c->x, c->y, c->width, c->height, g_hMainWnd, (HMENU)c->id, NULL, NULL);
+    SetWindowLongPtr(hw, GWLP_USERDATA, (ULONG_PTR)c);
+    return hw;
+}
+
+// link to the new style common controls. see http://msdn.microsoft.com/en-us/library/bb773175.aspx
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+       name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+       processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 
 //*****************************************************************************
 

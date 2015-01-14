@@ -18,6 +18,7 @@ struct CPixelPaint {
     DWORD bytesPerPixel;
     DWORD cheight;
     DWORD cwidth;
+    DWORD wpitch; // pitch / bytesPerPixel (useful for pointer arithmatic)
 };
 
 #define INIT_WINDOW 0
@@ -46,6 +47,36 @@ void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int sr
 
 BOOL __stdcall drd_processMessages();
 void __stdcall drd_printFps(const char* filename);
+
+
+// ******* UI elemets *******
+// type of control window when adding controls
+
+struct CtrlBase {
+    const char* type; // a value from "EDIT", "BUTTON"
+    int id;       // unique identifier of this control
+    int x;
+    int y;
+    int width;
+    int height;  
+    DWORD style;   
+    DWORD styleex; // see http://msdn.microsoft.com/en-us/library/61fe4bte.aspx
+    const char* initText;
+};
+
+// styles: http://msdn.microsoft.com/en-us/library/windows/desktop/bb775464(v=vs.85).aspx
+struct EditCtrl {
+    CtrlBase c;
+    // called when the text in the edit box is changed. text buffer is invalidated after the call returns.
+    void(__stdcall *textChanged)(int id, const char* text);
+};
+struct ButtonCtrl {
+    CtrlBase c;
+    void(__stdcall *clicked)(int id);
+};
+
+HWND __stdcall drd_createCtrl(void* c);
+
 
 
 }

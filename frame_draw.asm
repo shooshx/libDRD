@@ -22,9 +22,35 @@ WIN_HEIGHT equ 600
 
 getPixelColor PROC xi:DWORD, yi:DWORD, fi:DWORD
 ;--------------------------------------------------------------
-    mov eax, xi
-    add eax, yi
 
+;300 x Center
+;400 y Center
+;150 radius
+
+    sub xi, 300
+    mov eax, xi
+    mov ebx, xi
+    mul ebx
+    mov ecx, eax
+
+    sub yi, 400
+    mov eax, yi
+    mov ebx, yi
+    mul ebx
+
+    add ecx, eax
+
+; 150 * 150 = 22500
+    cmp ecx, 22500
+    jg notInCircle
+
+xyInCircle:
+    mov eax, 000000ffh
+    jmp done
+notInCircle:
+    mov eax, 00ffff00h
+
+done:
 ;============================================================
     ret
 getPixelColor ENDP
