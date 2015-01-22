@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <CommCtrl.h>
 
 #include "drd.h"
 #include "mcrt.h"
@@ -77,7 +78,7 @@ void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
     g_errorHandler = callback;
 }
 
-void handleWmCommand(DWORD notify, HWND hwnd) 
+void handleWmCommand(DWORD notify, HWND hwnd, DWORD v) 
 {
     static char* buf = NULL;
     static int buflen = 0;
@@ -106,7 +107,21 @@ void handleWmCommand(DWORD notify, HWND hwnd)
             }
         }
     }
+    else if (lstrcmpA(obj->type, TRACKBAR_CLASSA) == 0) {
+        auto that = (SliderCtrl*)obj;
+        if (notify == WM_HSCROLL) {
+            int req = LOWORD(v);
+            int value;
+            if (req == SB_THUMBPOSITION || req == SB_THUMBTRACK) {
+                value = HIWORD(v);
+            }
+            else {
+                value = SendMessage(hwnd, TBM_GETPOS, 0, 0);
+            }
+            that->changed(that->c.id, value);
+        }
 
+    }
 }
 
 
@@ -146,10 +161,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_COMMAND:  // from controls
-        handleWmCommand(HIWORD(wParam), (HWND)lParam);
+        handleWmCommand(HIWORD(wParam), (HWND)lParam, 0);
         break;
     case WM_CTLCOLORBTN: // cause the background of buttons to be black
         return (LRESULT)GetStockObject(BLACK_BRUSH);
+    case WM_HSCROLL:
+        handleWmCommand(message, (HWND)lParam, wParam);
+        break;
     } // switch
 
     LRESULT ret = DefWindowProc(hWnd, message, wParam, lParam);
@@ -454,12 +472,12 @@ void __stdcall drd_flip()
         RECT rcRectDest;
         GetClientRect(g_hMainWnd, &rcRectDest);
 
-        /*
+        
         if (rcRectDest.right != g_wndWidth) { // replaced with AdjustRect
             int borderWidth = p.x - gr.left;
             int extraHeight = p.y - gr.top + borderWidth;
             MoveWindow(g_hMainWnd, gr.left, gr.top, g_wndWidth + borderWidth * 2, g_wndHeight + extraHeight, FALSE);
-        }*/
+        }
 
         GetClientRect(g_hMainWnd, &rcRectDest);
         OffsetRect(&rcRectDest, p.x, p.y);
@@ -678,12 +696,33 @@ void __stdcall drd_printFps(const char* filename)
     }
 }
 
+HWND g_controlDlg = NULL;
+
+HWND __stdcall drd_createCtrlWindow(int width, int height) {
+    RECT r = {0, 0, width, height};
+    DWORD style = WS_SYSMENU | WS_MINIMIZEBOX | WS_OVERLAPPED | WS_CAPTION;
+    AdjustWindowRect(&r, style, FALSE);
+    width = r.right - r.left;
+    height = r.bottom - r.top;
+
+    g_controlDlg = CreateWindowExW(0, WC_DIALOG, L"controls", style | WS_VISIBLE, 
+                                   CW_USEDEFAULT, CW_USEDEFAULT, width, height, g_hMainWnd, NULL, NULL, NULL);
+    SetWindowLongPtr(g_controlDlg, GWLP_WNDPROC, (LONG_PTR)WndProc);
+    
+    return g_controlDlg;
+}
 
 HWND __stdcall drd_createCtrl(void* vc)
 {
     auto* c = (CtrlBase*)vc;
-    HWND hw = CreateWindowExA(c->styleex, c->type, c->initText, WS_CHILD | WS_VISIBLE | c->style, c->x, c->y, c->width, c->height, g_hMainWnd, (HMENU)c->id, NULL, NULL);
+    if (lstrcmpA(c->type, "SLIDER") == 0) {
+        c->type = TRACKBAR_CLASSA;
+    }
+    HWND hw = CreateWindowExA(c->styleex, c->type, c->initText, WS_CHILD | WS_VISIBLE | c->style, c->x, c->y, c->width, c->height, g_controlDlg, (HMENU)c->id, NULL, NULL);
     SetWindowLongPtr(hw, GWLP_USERDATA, (ULONG_PTR)c);
+
+    SendMessage(hw, WM_SETFONT, (WPARAM)GetStockObject(SYSTEM_FIXED_FONT), TRUE);
+
     return hw;
 }
 
@@ -764,13 +803,18 @@ BOOL __stdcall drd_processMessages() {
     MSG msg;
     if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
     {
-        // Check for a quit message
         if (msg.message == WM_QUIT) {
             return FALSE;
         }
 
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+        // quit message might just have been posted
+        if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+            if (msg.message == WM_QUIT) {
+                return FALSE;
+            }
+        }
     } 
     return TRUE;
 }

@@ -74,7 +74,16 @@ struct ButtonCtrl {
     CtrlBase c;
     void(__stdcall *clicked)(int id);
 };
+struct StaticCtrl {
+    CtrlBase c;
+};
 
+struct SliderCtrl {
+    CtrlBase c;
+    void(__stdcall *changed)(int id, int value);
+};
+
+HWND __stdcall drd_createCtrlWindow(int width, int height);
 HWND __stdcall drd_createCtrl(void* c);
 
 
