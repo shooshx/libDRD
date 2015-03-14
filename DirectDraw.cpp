@@ -78,6 +78,20 @@ void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
     g_errorHandler = callback;
 }
 
+HDC __stdcall drd_beginHdc() {
+    HDC hdc;
+    if (g_pDDSBack->GetDC(&hdc) != DD_OK) {
+        msgError("Failed GetDC");
+    }
+    return hdc;
+}
+
+void __stdcall drd_endHdc(HDC hdc) {
+    if (g_pDDSBack->ReleaseDC(hdc) != DD_OK) {
+        msgError("Failed ReleaseDC");
+    }
+}
+
 void handleWmCommand(DWORD notify, HWND hwnd, DWORD v) 
 {
     static char* buf = NULL;

@@ -59,6 +59,13 @@ drd_processMessages PROTO
 ; set window to be translucent, alpha between 0 to 255
 drd_windowSetTranslucent PROTO alpha:BYTE
 
+; returns an HDC handle which can be used with GDI drawing functions.
+drd_beginHdc PROTO
+
+; end GDI drawing on the hdc. a call to this function must be made with the value returned by drd_beginHdc
+; otherwise drd_flip will fail
+drd_endHdc PROTO hdc:HDC
+
 
 ; holds information about a loaded image
 Img STRUCT

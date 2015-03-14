@@ -19,6 +19,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     bool isAnim = false;
 
     while(true) {
+
         drd_pixelsBegin(&pp);
         DWORD* lineStart = pp.buf;
         for(DWORD y = 0; y < pp.cheight; ++y) {
@@ -31,7 +32,16 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
             lineStart = (DWORD*)(((char*)lineStart) + pp.pitch); // pitch is in bytes
         }
         drd_pixelsEnd();
+
+        HDC hdc = drd_beginHdc();
+        SelectObject(hdc, GetStockObject(WHITE_PEN));
+        MoveToEx(hdc, 100, 100, NULL);
+        LineTo(hdc, 500, 500);
+        drd_endHdc(hdc);
+
         drd_flip();
+
+
         if (!isAnim && MessageBoxA(NULL, "DirectDraw", "Continue?", MB_YESNO) == IDNO)
             break;
         if (!drd_processMessages())

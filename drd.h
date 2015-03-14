@@ -48,6 +48,8 @@ void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int sr
 BOOL __stdcall drd_processMessages();
 void __stdcall drd_printFps(const char* filename);
 
+HDC __stdcall drd_beginHdc();
+void __stdcall drd_endHdc(HDC hdc);
 
 // ******* UI elemets *******
 // type of control window when adding controls
