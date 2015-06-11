@@ -21,10 +21,12 @@ struct CPixelPaint {
     DWORD wpitch; // pitch / bytesPerPixel (useful for pointer arithmatic)
 };
 
-#define INIT_WINDOW 0
-#define INIT_FULLSCREEN 1
-#define INIT_WINDOWFULL 2
-#define INIT_INPUT_FALLTHROUGH 4
+#define INIT_WINDOW  0x00
+#define INIT_FULLSCREEN 0x01
+#define INIT_WINDOWFULL 0x02
+#define INIT_INPUT_FALLTHROUGH 0x04
+#define INIT_RESIZABLE 0x08
+#define INIT_RESIZABLE_STRETCH 0x18
 
 bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags);
 void __stdcall drd_windowSetTranslucent(BYTE alpha);
@@ -32,6 +34,7 @@ void __stdcall drd_windowSetTranslucent(BYTE alpha);
 void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) );
 void __stdcall drd_setKeyHandler(void(__stdcall *callback)(DWORD) );
 void __stdcall drd_setMouseHandler(void(__stdcall *callback)(DWORD, DWORD, DWORD) );
+void __stdcall drd_setResizeHandler(void(__stdcall *callback)(DWORD, DWORD) );
 
 void __stdcall drd_pixelsBegin(CPixelPaint* pp);
 void __stdcall drd_pixelsEnd();
@@ -50,6 +53,7 @@ void __stdcall drd_printFps(const char* filename);
 
 HDC __stdcall drd_beginHdc();
 void __stdcall drd_endHdc(HDC hdc);
+HWND __stdcall drd_getMainHwnd();
 
 // ******* UI elemets *******
 // type of control window when adding controls

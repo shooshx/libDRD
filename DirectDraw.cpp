@@ -28,11 +28,15 @@ static IDirectDrawSurface7* g_pDDSBack = NULL;   // DirectDraw backbuffer surfac
 static IDirectDrawClipper* g_clipper = NULL;
 static bool g_isWindowed = false;
 static DWORD g_wndWidth = 0, g_wndHeight = 0, g_srfPixelBytes = 0;
+static DWORD g_surfaceWidth = 0, g_surfaceHeight = 0; // window can be resized separately from the surface
 static void(__stdcall *g_keyHandler)(DWORD) = NULL;
 static void(__stdcall *g_mouseHandler)(DWORD, DWORD, DWORD) = NULL;
 static void(__stdcall *g_errorHandler)(const char* msg) = NULL;
+static void(__stdcall *g_resizeHandler)(DWORD, DWORD) = NULL;
 static bool g_switchingWindow = false; // don't quit in the closing of the window which is done when reiniting the window
 static bool g_minimized = false;
+static bool g_resizeStretch = false; // set by a flag from drd_init()
+static bool g_backBufferAttachment = false; // this will be true in "true" full screen more that has one surface with two buffers (does flip differently)
 
 
 void msgError(const char* msg) {
@@ -79,6 +83,7 @@ void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
 }
 
 HDC __stdcall drd_beginHdc() {
+    CHECKR_INIT(g_pDDSBack, NULL);
     HDC hdc;
     if (g_pDDSBack->GetDC(&hdc) != DD_OK) {
         msgError("Failed GetDC");
@@ -87,9 +92,14 @@ HDC __stdcall drd_beginHdc() {
 }
 
 void __stdcall drd_endHdc(HDC hdc) {
+    CHECK_INIT(g_pDDSBack);
     if (g_pDDSBack->ReleaseDC(hdc) != DD_OK) {
         msgError("Failed ReleaseDC");
     }
+}
+
+HWND __stdcall drd_getMainHwnd() {
+    return g_hMainWnd;
 }
 
 void handleWmCommand(DWORD notify, HWND hwnd, DWORD v) 
@@ -98,6 +108,8 @@ void handleWmCommand(DWORD notify, HWND hwnd, DWORD v)
     static int buflen = 0;
 
     CtrlBase* obj = (CtrlBase*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    if (obj == NULL) // a child we created
+        return;
     if (lstrcmpA(obj->type, "EDIT") == 0) {
         auto that = (EditCtrl*)obj;
         if (notify ==  EN_CHANGE) {
@@ -138,6 +150,8 @@ void handleWmCommand(DWORD notify, HWND hwnd, DWORD v)
     }
 }
 
+static bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height, bool fullScreen);
+static void cleanSurface();
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -174,6 +188,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_minimized = false;
         }
         break;
+    case WM_SIZE: {
+        int w = lParam & 0xffff;
+        int h = lParam >> 16;
+        if (g_isWindowed && wParam != SIZE_MINIMIZED && (w != g_wndWidth || h != g_wndHeight)) {
+            g_wndWidth = w;
+            g_wndHeight = h;
+            if (!g_resizeStretch) {
+                cleanSurface();
+                if (!initDDrawWindow(g_hMainWnd, g_wndWidth, g_wndHeight, false)) {
+                    msgError("Failed recreating DirectDraw surface");
+                }
+            }
+            if (g_resizeHandler != NULL) {
+                g_resizeHandler(g_wndWidth, g_wndHeight);
+            }
+        }
+        return 0;
+    }
     case WM_COMMAND:  // from controls
         handleWmCommand(HIWORD(wParam), (HWND)lParam, 0);
         break;
@@ -188,24 +220,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return ret;
 } 
 
+
 void __stdcall drd_setKeyHandler(void(__stdcall *callback)(DWORD) ) {
     g_keyHandler = callback;
 }
 void __stdcall drd_setMouseHandler(void(__stdcall *callback)(DWORD, DWORD, DWORD) ) {
     g_mouseHandler = callback;
 }
+void __stdcall drd_setResizeHandler(void(__stdcall *callback)(DWORD, DWORD)) {
+    g_resizeHandler = callback;
+}
 
-bool checkFlag(DWORD v, DWORD flag) {
+static bool checkFlag(DWORD v, DWORD flag) {
     return ((v & flag) == flag);
 }
 
 
 // width, height are pointer since in INIT_WINDOWFULL they are set according to the desktop
-HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
+static HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
 {
     bool isFullScreen = checkFlag(flags, INIT_FULLSCREEN);
     bool isWindowFull = checkFlag(flags, INIT_WINDOWFULL);
     bool isInputFall = checkFlag(flags, INIT_INPUT_FALLTHROUGH);
+    bool withResize = checkFlag(flags, INIT_RESIZABLE);
 
     if (isFullScreen) {
         if (isWindowFull) {
@@ -216,9 +253,14 @@ HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
             msgError("Can't create a full screen and with mouce fall-through");
             return NULL;
         }
+        if (withResize) {
+            msgError("Can't create a full screen with resize border");
+            return NULL;
+        }
     }
 
     g_isWindowed = !isFullScreen;
+    g_resizeStretch = checkFlag(flags, INIT_RESIZABLE_STRETCH);
 
     HWND hWnd;
     WNDCLASSW wc;
@@ -248,21 +290,26 @@ HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
     }
     else if (g_isWindowed) {
         style = WS_SYSMENU | WS_MINIMIZEBOX | WS_OVERLAPPED | WS_CAPTION;
+        if (withResize) {
+            style |= WS_SIZEBOX | WS_MAXIMIZEBOX;
+        }
+        if (isInputFall) {
+            exstyle |= WS_EX_TRANSPARENT | WS_EX_TOPMOST;
+        }
     }
     else {
         exstyle = WS_EX_TOPMOST;
         style = WS_POPUP;
     }
 
-    if (isInputFall) {
-        exstyle |= WS_EX_TRANSPARENT | WS_EX_TOPMOST;
-    }
+    // need to be set before CreateWindow since CreateWindow causes a WM_SIZE
+    g_wndWidth = *width;
+    g_wndHeight = *height;
 
     RECT adr = { 0, 0, *width, *height };
     AdjustWindowRect(&adr, style, FALSE); // WS_OVERLAPPEDWINDOW see http://www.directxtutorial.com/Lesson.aspx?lessonid=11-1-4
     DWORD cwidth = adr.right - adr.left;
     DWORD cheight = adr.bottom - adr.top;
-
 
     hWnd = CreateWindowExA(
         exstyle, //WS_EX_TOPMOST,
@@ -294,13 +341,27 @@ void __stdcall drd_windowSetTranslucent(BYTE alpha) { // (255 * 50) / 100
 
 
 // function to initialize DirectDraw in windowed mode
-bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height)
+static bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height, bool fullScreen)
 {
     HRESULT ddrval;
-    // using DDSCL_NORMAL means we will coexist with GDI
-    ddrval = g_pDD->SetCooperativeLevel(hwnd, DDSCL_NORMAL);
-    if (ddrval != DD_OK) {
-        return(false);
+
+    if (!fullScreen) {
+        // using DDSCL_NORMAL means we will coexist with GDI
+        ddrval = g_pDD->SetCooperativeLevel(hwnd, DDSCL_NORMAL);
+        if (ddrval != DD_OK) {
+            return(false);
+        }
+    }
+    else {
+        ddrval = g_pDD->SetCooperativeLevel(hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN);
+        if (ddrval != DD_OK)
+            return false;
+
+        ddrval = g_pDD->SetDisplayMode(width, height, 32, 0, 0);
+        if (ddrval != DD_OK) {
+            msgErrorV("FullScreen: Failed SetDisplayMode", ddrval);
+            return false;
+        }
     }
 
     DDSURFACEDESC2 ddsd;
@@ -341,10 +402,14 @@ bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height)
     if (ddrval != DD_OK)
         return false;
 
+    g_surfaceWidth = width;
+    g_surfaceHeight = height;
+    g_backBufferAttachment = false;
+
     return true;
 }
 
-bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
+static bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
 {
     HRESULT ddrval;
     ddrval = g_pDD->SetCooperativeLevel(hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN);
@@ -381,14 +446,14 @@ bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
         return false;
     }
 
+    g_surfaceWidth = width;
+    g_surfaceHeight = height;
+    g_backBufferAttachment = true;
+
     return true;
 }
 
-void cleanUp()
-{
-    if (g_hMainWnd) 
-        DestroyWindow(g_hMainWnd);
-    g_hMainWnd = NULL;
+static void cleanSurface() {
     if (g_pDDSBack)
         g_pDDSBack->Release();
     g_pDDSBack = NULL;
@@ -398,6 +463,13 @@ void cleanUp()
     if (g_clipper)
         g_clipper->Release();
     g_clipper = NULL;
+}
+static void cleanUp()
+{
+    if (g_hMainWnd) 
+        DestroyWindow(g_hMainWnd);
+    g_hMainWnd = NULL;
+    cleanSurface();
     if (g_pDD)
         g_pDD->Release();
     g_pDD = NULL;
@@ -444,10 +516,13 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     }
 
     bool initOk = false;
-    if (g_isWindowed)
-        initOk = initDDrawWindow(g_hMainWnd, width, height);
-    else
-        initOk = initDDrawFullScreen(g_hMainWnd, width, height);
+    if (g_isWindowed) {
+        initOk = initDDrawWindow(g_hMainWnd, width, height, false);
+	}
+    else {
+        initOk = initDDrawWindow(g_hMainWnd, width, height, true);  
+		//initDDrawFullScreen(g_hMainWnd, width, height);
+	}
 
     if (!initOk) {
         msgError("Failed initializing DirectDraw");
@@ -463,8 +538,7 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     g_srfPixelBytes = pf.dwRGBBitCount / 8;
 
 
-    g_wndWidth = width;
-    g_wndHeight = height;
+
     return true;
 }
 
@@ -476,27 +550,23 @@ void __stdcall drd_flip()
         return; // it's going to fail for a minimized window.
 
     // if we're windowed do the blit, else just Flip
-    if (g_isWindowed) {
+    if (!g_backBufferAttachment) { //g_isWindowed) {
         // first we need to figure out where on the primary surface our window lives
         POINT p = {0,0};
         ClientToScreen(g_hMainWnd, &p);
-        RECT gr;
-        mZeroMemory(&gr, sizeof(gr));
-        GetWindowRect(g_hMainWnd, &gr);
-        RECT rcRectDest;
-        GetClientRect(g_hMainWnd, &rcRectDest);
 
+        RECT rcRectDest;
         
-        if (rcRectDest.right != g_wndWidth) { // replaced with AdjustRect
+        /*if (rcRectDest.right != g_wndWidth) { // replaced with AdjustRect
             int borderWidth = p.x - gr.left;
             int extraHeight = p.y - gr.top + borderWidth;
             MoveWindow(g_hMainWnd, gr.left, gr.top, g_wndWidth + borderWidth * 2, g_wndHeight + extraHeight, FALSE);
-        }
-
-        GetClientRect(g_hMainWnd, &rcRectDest);
+        }*/
+        //GetClientRect(g_hMainWnd, &rcRectDest);
+        SetRect(&rcRectDest, 0, 0, g_wndWidth, g_wndHeight);
         OffsetRect(&rcRectDest, p.x, p.y);
         RECT rcRectSrc;
-        SetRect(&rcRectSrc, 0, 0, g_wndWidth, g_wndHeight);
+        SetRect(&rcRectSrc, 0, 0, g_surfaceWidth, g_surfaceHeight);
 
        /* DDBLTFX fx; no need for this
         mZeroMemory(&fx, sizeof(fx));
@@ -517,7 +587,7 @@ void __stdcall drd_flip()
         HRESULT ddrval = g_pDDSFront->Blt( &rcRectDest, g_pDDSBack, &rcRectSrc, flags, NULL); // | DDBLT_DDFX, &fx);
         checkHr(ddrval, "Failed win flip"); 
     } 
-    else {
+    else { // TBD - get rid of this, make it work the same as above
         HRESULT ddrval = g_pDDSFront->Flip(NULL, DDFLIP_WAIT);
         checkHr(ddrval, "Failed flip");
     }
@@ -535,8 +605,8 @@ void __stdcall drd_pixelsBegin(CPixelPaint* pp) {
     pp->buf = (DWORD*)ddsd.lpSurface;
     pp->pitch = ddsd.lPitch;
     pp->bytesPerPixel = g_srfPixelBytes;
-    pp->cheight = g_wndHeight;
-    pp->cwidth = g_wndWidth;
+    pp->cheight = g_surfaceHeight;
+    pp->cwidth = g_surfaceWidth;
     pp->wpitch = pp->pitch / pp->bytesPerPixel;
 }
 
@@ -565,6 +635,8 @@ void __stdcall drd_pixelsClear(DWORD color) {
 
 void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int srcY, int srcWidth, int srcHeight) {
     CHECK_INIT(img);
+    CHECK_INIT(img->surface);
+    CHECK_INIT(g_pDDSBack);
     RECT srcRect;
     SetRect(&srcRect, srcX, srcY, srcX+srcWidth, srcY+srcHeight);
     DWORD flags = DDBLTFAST_WAIT;
@@ -578,8 +650,6 @@ void __stdcall drd_imageDraw(CImg* img, int dstX, int dstY) {
     CHECK_INIT(img);
     drd_imageDrawCrop(img, dstX, dstY, 0, 0, img->width, img->height);
 }
-
-
 
 
 static bool imageLoad(const char* filename, DWORD id, CImg* ret)
@@ -670,9 +740,11 @@ void __stdcall drd_imageSetTransparent(CImg* img, DWORD color) {
 }
 
 void __stdcall drd_imageDelete(CImg* img) {
-    CHECK_INIT(img);
-
-    img->surface->Release();
+    if (img == NULL)
+        return;
+    if (img->surface != NULL) {
+        img->surface->Release();
+    }
     img->surface = NULL;
     img->height = 0;
     img->width = 0;
@@ -685,7 +757,7 @@ void __stdcall drd_printFps(const char* filename)
     static DWORD lastTime = 0;
     
     if (filename == NULL)
-        filename = "c:/temp/drd_fps.txt";
+        filename = "drd_fps.txt";
 
     ++frameCount;
     DWORD time = GetTickCount();
@@ -697,7 +769,7 @@ void __stdcall drd_printFps(const char* filename)
         lastTime = time;
         frameCount = 0;
 
-        mstrcat_s(buf, 100, " fps");
+        mstrcat_s(buf, 100, " fps\r\n");
 
         // http://msdn.microsoft.com/en-us/library/windows/desktop/aa363778(v=vs.85).aspx
         HANDLE hf = CreateFileA(filename, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);

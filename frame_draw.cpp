@@ -1,14 +1,12 @@
 #include <Windows.h>
 #include "drd.h"
-
+#include "CommCtrl.h"
 
 
 DWORD getPixelColor(DWORD xi, DWORD yi, DWORD fi)
 {
     return xi + yi;
 };
-
-
 
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -17,6 +15,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     CPixelPaint pp;
     DWORD f = 0;
     bool isAnim = false;
+
 
     while(true) {
 
@@ -40,7 +39,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         drd_endHdc(hdc);
 
         drd_flip();
-
+        
 
         if (!isAnim && MessageBoxA(NULL, "DirectDraw", "Continue?", MB_YESNO) == IDNO)
             break;

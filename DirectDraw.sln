@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpp_line_turtle", "cpp_line
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asm_test", "asm_test.vcxproj", "{07C5F116-D944-4BC2-B02F-C4D372149520}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "win32_wnd", "..\win32_wnd\win32_wnd.vcxproj", "{BDD31748-3420-4AE1-9E93-993BC507A901}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -43,6 +45,10 @@ Global
 		{07C5F116-D944-4BC2-B02F-C4D372149520}.Debug|Win32.Build.0 = Debug|Win32
 		{07C5F116-D944-4BC2-B02F-C4D372149520}.Release|Win32.ActiveCfg = Release|Win32
 		{07C5F116-D944-4BC2-B02F-C4D372149520}.Release|Win32.Build.0 = Release|Win32
+		{BDD31748-3420-4AE1-9E93-993BC507A901}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BDD31748-3420-4AE1-9E93-993BC507A901}.Debug|Win32.Build.0 = Debug|Win32
+		{BDD31748-3420-4AE1-9E93-993BC507A901}.Release|Win32.ActiveCfg = Release|Win32
+		{BDD31748-3420-4AE1-9E93-993BC507A901}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

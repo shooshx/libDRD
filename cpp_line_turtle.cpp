@@ -375,8 +375,25 @@ void __stdcall scrollChange(int id, int value) {
     scrollValue[id - 3] = value;
 }
 
+#pragma comment (lib, "Winmm.lib")
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    //PlaySound(L"C:\\projects\\Gvahim\\wave\\long.WAV", NULL, SND_ASYNC | SND_FILENAME);
+    MCIERROR e;
+    e = mciSendString(L"play C:\\projects\\Gvahim\\wave\\long.WAV", NULL, 0, NULL);
+    Sleep(500);
+    //PlaySound(L"C:\\projects\\Gvahim\\wave\\short.WAV", NULL, SND_ASYNC | SND_FILENAME);
+    e = mciSendString(L"play C:\\projects\\Gvahim\\wave\\short.WAV", NULL, 0, NULL);
+    Sleep(1000);
+
+    return 0;
+
+
+    int x = 4;
+    float y = (float)(x + 5);
+    int z = (int)(y + 1.0f);
+
     drd_init(800, 600, INIT_WINDOW);
 
     drd_createCtrlWindow(300, 700);
@@ -418,3 +435,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 }
 
 
+int main() {
+    return WinMain(0, 0, 0, 0);
+}

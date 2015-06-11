@@ -13,8 +13,13 @@ INIT_FULLSCREEN equ 1
 ; windown which covers the entive screen, don't take over the screen, width, height are ignored
 INIT_WINDOWFULL equ 2
 ; - and can have any of the following ored
-; set the created window as top most and allow mouse events to fall through it to other applications
+; set the created window as top most and allow mouse events to fall through it to other applications 
 INIT_INPUT_FALLTHROUGH equ 4
+; add resizing option to the window border
+; size of the drawing surface changes when window is resized. see drd_setResizeHandler to get the new size
+INIT_RESIZABLE equ 8
+; same as above but the size of the drawing surface always remains the same and is stretched across the resized window
+INIT_RESIZABLE_STRETCH equ 18h
 
 ; used for drawing pixles using direct memory access
 PixelPaint STRUCT
@@ -51,6 +56,10 @@ drd_setMouseHandler PROTO func:DWORD
 ; func should be a pointer to a function which takes 1 DWORD which is a pointer to a string describing the error
 ; if no handler is defined, an error messagebox appears 
 drd_setErrorHandler PROTO func:DWORD
+
+; setup a window resize handler. relevant only if INIT_RESIZABLE is passed to drd_init
+; func should be a pointer to a function which takes 2 DWORDs, the new width and height of the resized window
+drd_setResizeHandler PROTO func:DWORD
 
 ; processes window messages from the user, return FALSE if Escape key was clicked
 ; this function should be called in a loop
