@@ -59,6 +59,7 @@ drd_setErrorHandler PROTO func:DWORD
 
 ; setup a window resize handler. relevant only if INIT_RESIZABLE is passed to drd_init
 ; func should be a pointer to a function which takes 2 DWORDs, the new width and height of the resized window
+; this function can be called before drd_init if you want the resize handler to be called when the window is created
 drd_setResizeHandler PROTO func:DWORD
 
 ; processes window messages from the user, return FALSE if Escape key was clicked
@@ -73,8 +74,10 @@ drd_beginHdc PROTO
 
 ; end GDI drawing on the hdc. a call to this function must be made with the value returned by drd_beginHdc
 ; otherwise drd_flip will fail
-drd_endHdc PROTO hdc:HDC
+drd_endHdc PROTO hdc:DWORD
 
+; returns the handle (HWND) of the main window
+drd_getMainHwnd PROTO
 
 ; holds information about a loaded image
 Img STRUCT
@@ -106,7 +109,17 @@ drd_imageDelete PROTO pimg:DWORD
 ; append text to filename. if filename is NULL, the default file is c:/temp/drd_fps.txt
 drd_printFps PROTO filename:DWORD
 
+; set the title of the main window to the given null-terminated string
+drd_setWindowTitle PROTO strng:DWORD
+
+
+; setup a handler to any window message
+; msg is the WM_ message to register to, callback is a function the takes 3 DWORDs: message, wParam, lParam
+;   return value from the callback >= 0 is returned from the WinProc without further processing. returning -1 falls through the default drd message processing.
+; This callback is useful for interception MM_MCINOTIFY sent by mciSendString "notify" flag
+; warning: interception messages that are handled by drd may cause it not to function properly. see drd code for the messaged processed.
+drd_setWinMsgHandler PROTO msg:DWORD, callback:DWORD
 
 ;------- crt replacement functions -----
 mrand PROTO
-msrange PROTO seed:DWORD
+msrand PROTO seed:DWORD

@@ -15,7 +15,7 @@ include \masm32\include\gdi32.inc
 .code
 main PROC
 
-
+    ret
 main ENDP
 end main
    

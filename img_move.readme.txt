@@ -1,0 +1,2 @@
+Follow the mouse with an image
+If the mouse left button is down, don't clean the view before, leaving a trail

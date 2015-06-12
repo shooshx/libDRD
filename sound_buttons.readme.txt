@@ -1,0 +1,20 @@
+Display 3 buttons which
+- play a sound using PlaySound
+- play a sound using mciSendString
+- open a different sound file
+using PlaySound is simple but it can only play one sound at a time
+using mciSendString it is possible to mix several sounds at the same time
+mciSendSound takes a command string. some useful commands:
+  "play file.wav"
+  "open file.wav alias 123"
+  "play 123"
+  "close 123"
+in order to play the same sound file again and again at the same you need to open it with different aliases each time.
+otherwise it would only play once.
+After the sound is done playing, the main window receives MM_MCINOTIFY and the handler for this message calls mciSendCommand(MCI_CLOSE) to close the file
+more info: https://msdn.microsoft.com/en-us/library/windows/desktop/dd743373(v=vs.85).aspx
+
+Also in this project: 
+- creating buttons
+- using the OSs dialog to get a filename.
+- formatting strings

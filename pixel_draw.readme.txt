@@ -1,0 +1,5 @@
+Draw an entire frame using the pixel interface
+- implement getPixelColor to show other patterns
+   - draw a chess board
+   - draw a circle
+- add animation

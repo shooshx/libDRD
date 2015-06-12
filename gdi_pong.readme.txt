@@ -1,0 +1,9 @@
+classic pong game, using GDI graphics primitives
+- numpad up,down arrows control player 1
+- Q,A control player 2
+- press F to toggle full screen
+
+This project shows
+- using GetAsyncKeyState for accurate sampling of the keyboard
+- using LOCAL arrays
+- using anonymous label jump (@@, @F)

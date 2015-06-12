@@ -1,0 +1,3 @@
+draws random rectangles on the window using the direct pixel interfact
+supports resizing the window
+- try to change INIT_RESIZABLE to INIT_RESIZABLE_STRETCH and see the effect
