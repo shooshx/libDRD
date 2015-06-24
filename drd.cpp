@@ -73,7 +73,11 @@ bool checkHr(HRESULT hr, const char* msg) {
 }
 
 #define CHECK_INIT(var) if (var == NULL) { msgError2("Not initialized ", #var); return; }
+#define CHECK_INIT_MSG(var, msg) if (var == NULL) { msgError2(msg "\nnot initialized ", #var); return; }
 #define CHECKR_INIT(var, ret) if (var == NULL) { msgError2("Not initialized ", #var); return ret; }
+#define CHECKR_INIT_MSG(var, ret, msg) if (var == NULL) { msgError2(msg "\nnot initialized ", #var); return ret; }
+#define CHECK_INITDRD(var) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return; }
+#define CHECKR_INITDRD(var, ret) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return ret; }
 
 
 void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
@@ -81,7 +85,7 @@ void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
 }
 
 HDC __stdcall drd_beginHdc() {
-    CHECKR_INIT(g_pDDSBack, NULL);
+    CHECKR_INITDRD(g_pDDSBack, NULL);
     HDC hdc;
     if (g_pDDSBack->GetDC(&hdc) != DD_OK) {
         msgError("Failed GetDC");
@@ -102,7 +106,7 @@ HWND __stdcall drd_getMainHwnd() {
 
 
 void __stdcall drd_setWindowTitle(const char* str) {
-    CHECK_INIT(g_hMainWnd);
+    CHECK_INITDRD(g_hMainWnd);
     SetWindowTextA(g_hMainWnd, str);
 }
 
@@ -570,7 +574,7 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
 
 void __stdcall drd_flip()
 {
-    CHECK_INIT(g_pDDSBack);
+    CHECK_INITDRD(g_pDDSBack);
     if (g_minimized)
         return; // it's going to fail for a minimized window.
 
@@ -621,7 +625,8 @@ void __stdcall drd_flip()
 
 void __stdcall drd_pixelsBegin(CPixelPaint* pp) {
     CHECK_INIT(pp);
-    CHECK_INIT(g_pDDSBack);
+    CHECK_INITDRD(g_pDDSBack);
+
     DDSURFACEDESC2 ddsd;
     mZeroMemory(&ddsd, sizeof(ddsd));
     ddsd.dwSize = sizeof(ddsd);
@@ -650,7 +655,7 @@ void __stdcall drd_pixelsEnd() {
 
 
 void __stdcall drd_pixelsClear(DWORD color) {
-    CHECK_INIT(g_pDDSBack);
+    CHECK_INITDRD(g_pDDSBack);
     DDBLTFX fx;
     fx.dwSize = sizeof(fx);
     fx.dwFillColor = color;
@@ -661,8 +666,8 @@ void __stdcall drd_pixelsClear(DWORD color) {
 void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int srcY, int srcWidth, int srcHeight) 
 {
     CHECK_INIT(img);
-    CHECK_INIT(img->surface);
-    CHECK_INIT(g_pDDSBack);
+    CHECK_INIT_MSG(img->surface, "image not initialized, call drd_imageLoadFile or drd_imageLoadResource first");
+    CHECK_INITDRD(g_pDDSBack);
     RECT srcRect;
     SetRect(&srcRect, srcX, srcY, srcX + srcWidth, srcY + srcHeight);
 
@@ -702,14 +707,15 @@ void __stdcall drd_imageDrawCrop(CImg* img, int dstX, int dstY, int srcX, int sr
 }
 
 void __stdcall drd_imageDraw(CImg* img, int dstX, int dstY) {
-    CHECK_INIT(img);
+    CHECK_INIT(img); // need to be here since we access img
     drd_imageDrawCrop(img, dstX, dstY, 0, 0, img->width, img->height);
 }
 
 
 static bool imageLoad(const char* filename, DWORD id, CImg* ret)
 {
-    CHECKR_INIT(ret, false);
+    CHECKR_INIT_MSG(ret, false, "pointer to Img struct should not be NULL");
+    CHECKR_INITDRD(g_pDD, false);
 
     BITMAP bm;
     IDirectDrawSurface7 *pdds;
@@ -784,7 +790,7 @@ bool __stdcall drd_imageLoadResource(DWORD id, CImg* ret) {
 
 void __stdcall drd_imageSetTransparent(CImg* img, DWORD color) {
     CHECK_INIT(img);
-    CHECK_INIT(img->surface);
+    CHECK_INIT_MSG(img->surface, "image not initialized, call drd_imageLoadFile or drd_imageLoadResource first");
 
     DDCOLORKEY ddck;
     ddck.dwColorSpaceLowValue = color;

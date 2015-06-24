@@ -3,6 +3,6 @@
 window color-key
 
 
-load PNG
 alpha blt http://msdn.microsoft.com/en-us/library/aa915435.aspx
+PNG load
 
