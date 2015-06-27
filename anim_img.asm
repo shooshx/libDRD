@@ -56,7 +56,7 @@ main PROC
     sub ebx, 60
     invoke drd_imageDrawCrop, offset myimg, eax, ebx, atlasOffset, 0, 64, 60
     invoke drd_flip
-    invoke Sleep, 10
+    invoke Sleep, 10 ; don't over load the CPU
 
     invoke drd_processMessages
     cmp eax, 0

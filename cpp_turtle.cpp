@@ -1,13 +1,14 @@
 #include <Windows.h>
 #include <CommCtrl.h>
 
-#include "drd.h"
 #include <math.h>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <map>
 #include <memory>
+
+#include "drd.h"
 
 using namespace std;
 
@@ -389,12 +390,8 @@ void __stdcall scrollChange(int id, int value) {
 }
 
 
-int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int main() 
 {
-    int x = 4;
-    float y = (float)(x + 5);
-    int z = (int)(y + 1.0f);
-
     drd_init(800, 600, INIT_WINDOW);
 
     drd_createCtrlWindow(300, 700);
@@ -435,7 +432,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     return 0;
 }
 
-// in case this is compiled as a console application
-int main() {
-    return WinMain(0, 0, 0, 0);
+// in case this is compiled as a windows application
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    return main();
 }

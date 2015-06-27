@@ -1,0 +1,3 @@
+Using drd for creating an OpenGL context
+- two main() functions, one displaying a 3d cube, one a 2d triangle
+- 

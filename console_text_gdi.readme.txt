@@ -3,3 +3,4 @@ Input text from the console window and display it using GDI functions on the gra
   The threads communicate using the text buffer. no syncronization is needed
 - A new font object is created every frame with the current rotation
 - user can enter "exit" in the console to stop the program
+- using "Sleep" to avoid consuming 100% CPU

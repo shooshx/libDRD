@@ -5,11 +5,76 @@
 #include "drd_mcrt.h"
 #include "drd_arraymap.h"
 #include <ddraw.h>
+#include <gl/gl.h>
+
+#define VERSION L"1.4"
 
 // define it again here so that we would not have a dependency in ddraw.lib
 const GUID MY_IID_IDirectDraw7 = { 0x15e65ec0,0x3b9c,0x11d2,0xb9,0x2f,0x00,0x60,0x97,0x97,0xea,0x5b };
 
+#define MYSC_ABOUT 1001
+
 using namespace std;
+
+//---------- Error handling functions -------------------
+
+extern "C"static void(__stdcall *g_errorHandler)(const char* msg) = NULL;
+
+void format(char* buf, int len) {}
+
+template<typename... Args>
+void format(char* buf, int len, const char* first, Args... args) {
+    mstrcat_s(buf, len, first);
+    format(buf, len, args...);
+}
+template<typename... Args>
+void format(char* buf, int len, DWORD first, Args... args) {
+    mitoa(first, buf, 16);
+    format(buf, len, args...);
+}
+
+template<typename... Args>
+void msgError(Args... args) {
+    char buf[300];
+    mZeroMemory(buf, 200);
+    format(buf, 200, args...);
+
+    if (g_errorHandler != NULL) {
+        g_errorHandler(buf);
+        return;
+    }
+    if (MessageBoxA(g_hMainWnd, buf, "Error", MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDRETRY)
+        return;
+    ExitProcess(1);
+}
+
+const char* lastErrorStr() {
+    DWORD v = GetLastError();
+    static char buf[200];
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, v, 0, buf, 200, NULL);
+    return buf;
+}
+
+void msgErrorLE(const char* msg) {
+    msgError(msg, lastErrorStr());
+}
+
+bool checkHr(HRESULT hr, const char* msg) {
+    if (hr != DD_OK) {
+        msgError(msg, hr);
+        return false;
+    }
+    return true;
+}
+
+#define CHECK_INIT(var) if (var == NULL) { msgError("Not initialized ", #var); return; }
+#define CHECK_INIT_MSG(var, msg) if (var == NULL) { msgError(msg "\nnot initialized ", #var); return; }
+#define CHECKR_INIT(var, ret) if (var == NULL) { msgError("Not initialized ", #var); return ret; }
+#define CHECKR_INIT_MSG(var, ret, msg) if (var == NULL) { msgError(msg "\nnot initialized ", #var); return ret; }
+#define CHECK_INITDRD(var) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return; }
+#define CHECKR_INITDRD(var, ret) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return ret; }
+
+
 
 extern "C" {
 
@@ -27,7 +92,6 @@ static DWORD g_wndWidth = 0, g_wndHeight = 0, g_srfPixelBytes = 0;
 static DWORD g_surfaceWidth = 0, g_surfaceHeight = 0; // window can be resized separately from the surface
 static void(__stdcall *g_keyHandler)(DWORD) = NULL;
 static void(__stdcall *g_mouseHandler)(DWORD, DWORD, DWORD) = NULL;
-static void(__stdcall *g_errorHandler)(const char* msg) = NULL;
 static void(__stdcall *g_resizeHandler)(DWORD, DWORD) = NULL;
 static bool g_switchingWindow = false; // don't quit in the closing of the window which is done when reiniting the window
 static bool g_minimized = false;
@@ -37,47 +101,10 @@ static bool g_backBufferAttachment = false; // this will be true in "true" full 
 typedef ArrayMap<UINT, int(__stdcall*)(DWORD, DWORD, DWORD), 20> MsgHandlers;
 static MsgHandlers* g_msgHandlers = NULL;
 
-void msgError(const char* msg) {
-    if (g_errorHandler != NULL) {
-        g_errorHandler(msg);
-        return;
-    }
-    if (MessageBoxA(g_hMainWnd, msg, "Error", MB_RETRYCANCEL | MB_ICONEXCLAMATION) == IDRETRY)
-        return;
-    ExitProcess(1);
-}
+// OpenGL
+HDC g_glHDC = 0;
+HGLRC g_glHRC = 0;
 
-void msgError2(const char* msg, const char* msg2) {
-    char buf[200];
-    mZeroMemory(buf, 200);
-    mstrcat_s(buf, 200, msg);
-    mstrcat_s(buf, 200, msg2);
-    msgError(buf);
-}
-
-void msgErrorV(const char* msg, DWORD v) {
-    char buf[200];
-    mZeroMemory(buf, 200);
-    mitoa(v, buf, 16);
-    mstrcat_s(buf, 200, " ");
-    mstrcat_s(buf, 200, msg);
-    msgError(buf);
-}
-
-bool checkHr(HRESULT hr, const char* msg) {
-    if (hr != DD_OK) {
-        msgErrorV(msg, hr);
-        return false;
-    }
-    return true;
-}
-
-#define CHECK_INIT(var) if (var == NULL) { msgError2("Not initialized ", #var); return; }
-#define CHECK_INIT_MSG(var, msg) if (var == NULL) { msgError2(msg "\nnot initialized ", #var); return; }
-#define CHECKR_INIT(var, ret) if (var == NULL) { msgError2("Not initialized ", #var); return ret; }
-#define CHECKR_INIT_MSG(var, ret, msg) if (var == NULL) { msgError2(msg "\nnot initialized ", #var); return ret; }
-#define CHECK_INITDRD(var) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return; }
-#define CHECKR_INITDRD(var, ret) if (var == NULL) { msgError("DRD not initialized. call drd_init first"); return ret; }
 
 
 void __stdcall drd_setErrorHandler(void(__stdcall *callback)(const char*) ) {
@@ -108,6 +135,42 @@ HWND __stdcall drd_getMainHwnd() {
 void __stdcall drd_setWindowTitle(const char* str) {
     CHECK_INITDRD(g_hMainWnd);
     SetWindowTextA(g_hMainWnd, str);
+}
+
+#define MAX_TEMPLAET 500
+class DialogTemplate {
+public:
+    DialogTemplate(int cx, int cy) {
+        mZeroMemory(&data, MAX_TEMPLAET);
+        header = (DLGTEMPLATE*)&data;
+        header->style = WS_CAPTION | WS_VISIBLE | WS_SYSMENU;
+        header->cx = cx; header->cy = cy;
+        cur = (WORD*)(header + 1) + 3;
+    }
+    void addStatic(int x, int y, int cx, int cy, int id, wchar_t* str) {
+        ++header->cdit;
+        DLGITEMTEMPLATE* item = (DLGITEMTEMPLATE*)cur;
+        item->style = WS_VISIBLE | WS_CHILD;
+        item->x = x;   item->y = y;
+        item->cx = cx; item->cy = cy;
+        item->id = id;
+        cur = (WORD*)(item + 1);
+        (*cur++) = 0xffff;
+        (*cur++) = 0x0082; // static
+        cur += mwstrcat_s((wchar_t*)cur, (int)(data + MAX_TEMPLAET - (char*)cur), str);
+        //(*cur++) = 
+    }
+
+    char data[MAX_TEMPLAET];
+    DLGTEMPLATE* header;
+    WORD* cur;
+};
+
+void runAboutDialog() {
+    DialogTemplate dt(160, 55);
+    dt.addStatic(10, 10, 150, 40, 101, L"DRD Version " VERSION L"\nhttps://github.com/shooshx/DirectDrawTest\nShy Shalom, 2015\nshooshx@gmail.com");
+
+    HWND dlg = CreateDialogIndirectW(GetModuleHandle(NULL), dt.header, g_hMainWnd, NULL);
 }
 
 
@@ -206,6 +269,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         else if (wParam == SC_MAXIMIZE || wParam == SC_RESTORE) {
             g_minimized = false;
         }
+        else if (wParam == MYSC_ABOUT) {
+            runAboutDialog();
+        }
         break;
     case WM_SIZE: {
         int w = lParam & 0xffff;
@@ -264,6 +330,7 @@ void __stdcall drd_setWinMsgHandler(DWORD msg, int(__stdcall *callback)(DWORD, D
 static bool checkFlag(DWORD v, DWORD flag) {
     return ((v & flag) == flag);
 }
+
 
 
 // width, height are pointer since in INIT_WINDOWFULL they are set according to the desktop
@@ -349,6 +416,9 @@ static HWND createWindow(DWORD* width, DWORD* height, DWORD flags)
         x, y, cwidth, cheight,
         NULL, NULL, hInst, NULL);
 
+    if (g_isWindowed) {
+        InsertMenuA(GetSystemMenu(hWnd, FALSE), 0, MF_BYPOSITION | MF_STRING, MYSC_ABOUT, "About...");
+    }
 
     ShowWindow(hWnd, SW_SHOW);
     UpdateWindow(hWnd);
@@ -390,7 +460,7 @@ static bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height, bool fullScree
 
         ddrval = g_pDD->SetDisplayMode(width, height, 32, 0, 0);
         if (ddrval != DD_OK) {
-            msgErrorV("FullScreen: Failed SetDisplayMode", ddrval);
+            msgError("FullScreen: Failed SetDisplayMode", ddrval);
             return false;
         }
     }
@@ -403,22 +473,22 @@ static bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height, bool fullScree
 
     // The primary surface is not a page flipping surface this time
     ddrval = g_pDD->CreateSurface(&ddsd, &g_pDDSFront, NULL);
-    if (ddrval != DD_OK)
+    if (!checkHr(ddrval, "init CreateSurface front"))
         return false;
 
     // Create a clipper to ensure that our drawing stays inside our window
     ddrval = g_pDD->CreateClipper(0, &g_clipper, NULL);
-    if (ddrval != DD_OK)
+    if (!checkHr(ddrval, "init CreateClipper"))
         return false;
 
     // setting it to our hwnd gives the clipper the coordinates from our window
     ddrval = g_clipper->SetHWnd(0, hwnd);
-    if (ddrval != DD_OK)
+    if (!checkHr(ddrval, "init SetHWnd"))
         return false;
 
     // attach the clipper to the primary surface
     ddrval = g_pDDSFront->SetClipper(g_clipper);
-    if (ddrval != DD_OK)
+    if (!checkHr(ddrval, "init SetClipper"))
         return false;
 
     mZeroMemory(&ddsd, sizeof(ddsd));
@@ -430,7 +500,7 @@ static bool initDDrawWindow(HWND hwnd, DWORD width, DWORD height, bool fullScree
 
     // create the backbuffer separately
     ddrval = g_pDD->CreateSurface(&ddsd, &g_pDDSBack, NULL);
-    if (ddrval != DD_OK)
+    if (!checkHr(ddrval, "init CreateSurface back"))
         return false;
 
     g_surfaceWidth = width;
@@ -448,8 +518,7 @@ static bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
         return false;
 
     ddrval = g_pDD->SetDisplayMode(width, height, 32 ,0, 0);
-    if (ddrval != DD_OK) {
-        msgErrorV("FullScreen: Failed SetDisplayMode", ddrval);
+    if (!checkHr(ddrval, "FullScreen: Failed SetDisplayMode")) {
         return false;
     }
 
@@ -462,8 +531,7 @@ static bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
     ddsd.dwBackBufferCount = 1;
 
     ddrval = g_pDD->CreateSurface(&ddsd, &g_pDDSFront, NULL);
-    if (ddrval != DD_OK) {
-        msgErrorV("FullScreen: Failed CreateSurface", ddrval);
+    if (!checkHr(ddrval, "FullScreen: Failed CreateSurface")) {
         return false;
     }
 
@@ -472,8 +540,7 @@ static bool initDDrawFullScreen(HWND hwnd, DWORD width, DWORD height)
     mZeroMemory(&ddscaps, sizeof(ddscaps));
     ddscaps.dwCaps = DDSCAPS_BACKBUFFER;
     ddrval = g_pDDSFront->GetAttachedSurface(&ddscaps, &g_pDDSBack); //DDERR_INVALIDOBJECT
-    if (ddrval != DD_OK) {
-        msgErrorV("FullScreen: GetAttachedSurface ", ddrval);
+    if (!checkHr(ddrval, "FullScreen: GetAttachedSurface")) {
         return false;
     }
 
@@ -513,12 +580,12 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     if (g_ddrawModule == NULL) {
         g_ddrawModule = LoadLibraryW(L"DDRAW.DLL");
         if (g_ddrawModule == NULL) {
-            msgErrorV("Failing loading ddraw.dll", GetLastError());
+            msgErrorLE("Failing loading ddraw.dll ");
             return false;
         }
         pDirectDrawCreateEx = (TDirectDrawCreateEx)GetProcAddress(g_ddrawModule, "DirectDrawCreateEx");
         if (pDirectDrawCreateEx == NULL) {
-            msgError("Failing GetProcAdddress DirectDrawCreateEx");
+            msgErrorLE("Failing GetProcAdddress DirectDrawCreateEx ");
             return false;
         }
     }
@@ -528,17 +595,12 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
         cleanUp();
         g_switchingWindow = false;
     }
+
     g_hMainWnd = createWindow(&width, &height, flags); // sets g_isWindowed
     if (!g_hMainWnd) {
         msgError("Failed creating window");
         return false;
     }
-/*
-    HDC dc = GetDC(g_hMainWnd);
-    SetDCBrushColor(dc, 0x0000ff);
-    RECT r = {0,0,100,100};
-    FillRect(dc, &r, (HBRUSH)GetStockObject(DC_BRUSH));
-*/
  
     HRESULT ddrval = pDirectDrawCreateEx(NULL, (VOID**)&g_pDD, MY_IID_IDirectDraw7, NULL);
     if (ddrval != DD_OK) {
@@ -571,6 +633,81 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
     return true;
 }
 
+
+
+#define GET_FUNC(name, type) using T##name = type; T##name name = (T##name)GetProcAddress(mod, #name);
+
+struct GLFuncs {
+    HMODULE mod = LoadLibraryA("opengl32.dll");
+
+    GET_FUNC(wglCreateContext, HGLRC(WINAPI*)(HDC));
+    GET_FUNC(wglMakeCurrent, BOOL(WINAPI*)(HDC, HGLRC));
+
+    static GLFuncs& instance() {
+        static GLFuncs f;
+        return f;
+    }
+};
+
+
+bool __stdcall drd_initGL()
+{
+    CHECKR_INITDRD(g_hMainWnd, false);
+
+    auto f = GLFuncs::instance();
+    if (f.mod == NULL) {
+        msgError("Failed loading opengl32.dll");
+        return false;
+    }
+
+    g_glHDC = GetDC(g_hMainWnd);  //get current windows device context
+
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),          //size of structure
+        1,                                      //default version
+        PFD_DRAW_TO_WINDOW |                    //window drawing support
+        PFD_SUPPORT_OPENGL |                    //opengl support
+        PFD_DOUBLEBUFFER,                       //double buffering support
+        PFD_TYPE_RGBA,                          //RGBA color mode
+        32,                                     //32 bit color mode
+        0, 0, 0, 0, 0, 0,                       //ignore color bits
+        0,                                      //no alpha buffer
+        0,                                      //ignore shift bit
+        0,                                      //no accumulation buffer
+        0, 0, 0, 0,                             //ignore accumulation bits
+        16,                                     //16 bit z-buffer size
+        0,                                      //no stencil buffer
+        0,                                      //no aux buffer
+        PFD_MAIN_PLANE,                         //main drawing plane
+        0,                                      //reserved
+        0, 0, 0 };                              //layer masks ignored
+
+    int nPixelFormat = ChoosePixelFormat(g_glHDC, &pfd);
+    if (nPixelFormat == 0) {
+        msgErrorLE("Failed ChoosePixelFormat ");
+        return false;
+    }
+    if (!SetPixelFormat(g_glHDC, nPixelFormat, &pfd)) {
+        msgErrorLE("Failed SetPixelFormat ");
+        return false;
+    }
+
+    g_glHRC = f.wglCreateContext(g_glHDC);
+    if (g_glHRC == NULL) {
+        msgErrorLE("Failed wglCreateContext ");
+        return false;
+    }
+    if (!f.wglMakeCurrent(g_glHDC, g_glHRC)) {
+        msgErrorLE("Failed wglMakeCurrent ");
+        return false;
+    }
+    return true;
+}
+
+void __stdcall drd_flipGL()
+{
+    SwapBuffers(g_glHDC);
+}
 
 void __stdcall drd_flip()
 {
@@ -724,14 +861,14 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
     if (filename != NULL) {
         hbm = (HBITMAP)LoadImageA(NULL, filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
         if (hbm == NULL) {
-            msgError2("imageLoadFile: Failed to load file ", filename);
+            msgError("imageLoadFile: Failed to load file ", filename, " ", lastErrorStr());
             return false;
         }
     }
     else {
         hbm = (HBITMAP)LoadImageA(GetModuleHandle(NULL), MAKEINTRESOURCEA(id), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
         if (hbm == NULL) {
-            msgErrorV("imageLoadFile: Failed  to load resoruce", id);
+            msgError("imageLoadFile: Failed to load resoruce", id, " ", lastErrorStr());
             return false;
         }
     }
@@ -747,8 +884,8 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
     ddsd.dwWidth = bm.bmWidth;
     ddsd.dwHeight = bm.bmHeight;
 
-    if (g_pDD->CreateSurface(&ddsd, &pdds, NULL) != DD_OK) {
-        msgError("imageLoadFile: failed CreateSurface");
+    HRESULT ddrval = g_pDD->CreateSurface(&ddsd, &pdds, NULL);
+    if (!checkHr(ddrval, "imageLoadFile: failed CreateSurface")) {
         return false;
     }
 
@@ -756,13 +893,13 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
     HDC hdcImage = CreateCompatibleDC(NULL);
     HBITMAP hbmOld = (HBITMAP)SelectObject(hdcImage, hbm);
     HDC hdc;
-    if (pdds->GetDC(&hdc) != DD_OK) {
-        msgError("imageLoadFile: failed GetDC");
+    ddrval = pdds->GetDC(&hdc);
+    if (!checkHr(ddrval, "imageLoadFile: failed GetDC")) {
         return false;
     }
 
     if (BitBlt(hdc, 0, 0, bm.bmWidth, bm.bmHeight, hdcImage, 0, 0, SRCCOPY) == 0) {
-        msgError("imageLoadFile: failed BitBlt");
+        msgErrorLE("imageLoadFile: failed BitBlt ");
         return false;
     }
     pdds->ReleaseDC(hdc);

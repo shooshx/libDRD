@@ -35,6 +35,19 @@ void mstrcat_s(char* dst, size_t dstsz, const char* src) {
         dst[di++] = src[si++];
     dst[di] = 0;
 }
+int mwstrcat_s(wchar_t* dst, size_t dstsz, const wchar_t* src) {
+    size_t di = 0;
+    while (dst[di] != 0 && di < dstsz)
+        ++di;
+    if (di == dstsz)
+        return 0;
+    int si = 0;
+    while (src[si] != 0 && di < dstsz - 1)
+        dst[di++] = src[si++];
+    dst[di] = 0;
+    return di + 1;
+}
+
 
 
  void mitoa(int n, char s[], int base)

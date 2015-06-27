@@ -24,7 +24,7 @@ WIN_HEIGHT equ 600
 .code
 
 mouseHandler PROC wmsg:DWORD, wParam:DWORD, lParam:DWORD
-    ; extract the mouse coordinates from the mouse message
+    ; extract the mouse coordinates from the mouse message in lParam
     mov eax, lParam
     shl eax, 16
     shr eax, 16
@@ -32,6 +32,7 @@ mouseHandler PROC wmsg:DWORD, wParam:DWORD, lParam:DWORD
     mov eax, lParam
     shr eax, 16
     mov my, eax
+    ; buttons info in wParam
     mov eax, wParam
     and eax, MK_LBUTTON
     mov pressed, eax

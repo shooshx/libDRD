@@ -28,6 +28,7 @@ struct CPixelPaint {
 #define INIT_INPUT_FALLTHROUGH 0x04
 #define INIT_RESIZABLE 0x08
 #define INIT_RESIZABLE_STRETCH 0x18
+#define INIT_OPENGL 0x20
 
 bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags);
 void __stdcall drd_windowSetTranslucent(BYTE alpha);
@@ -55,6 +56,9 @@ void __stdcall drd_printFps(const char* filename);
 HDC __stdcall drd_beginHdc();
 void __stdcall drd_endHdc(HDC hdc);
 HWND __stdcall drd_getMainHwnd();
+
+bool __stdcall drd_initGL();
+void __stdcall drd_flipGL();
 
 // ******* UI elemets *******
 // type of control window when adding controls

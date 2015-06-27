@@ -33,6 +33,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "anim_img", "anim_img.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "img_simple", "img_simple.vcxproj", "{2DB76A21-FA37-432A-ACF1-CFE246AA91F4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpp_opengl", "cpp_opengl.vcxproj", "{266736DF-6FB1-4DA5-A659-170225343029}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -95,6 +97,10 @@ Global
 		{2DB76A21-FA37-432A-ACF1-CFE246AA91F4}.Debug|Win32.Build.0 = Debug|Win32
 		{2DB76A21-FA37-432A-ACF1-CFE246AA91F4}.Release|Win32.ActiveCfg = Release|Win32
 		{2DB76A21-FA37-432A-ACF1-CFE246AA91F4}.Release|Win32.Build.0 = Release|Win32
+		{266736DF-6FB1-4DA5-A659-170225343029}.Debug|Win32.ActiveCfg = Debug|Win32
+		{266736DF-6FB1-4DA5-A659-170225343029}.Debug|Win32.Build.0 = Debug|Win32
+		{266736DF-6FB1-4DA5-A659-170225343029}.Release|Win32.ActiveCfg = Release|Win32
+		{266736DF-6FB1-4DA5-A659-170225343029}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -113,5 +119,6 @@ Global
 		{DA215FC5-B555-43F4-AD8B-45BF10B7CC0D} = {5F3EA41B-9031-4AAF-AD7D-5497A82D33B8}
 		{5A4B49A6-AD8A-411C-800F-11F951009B25} = {5F3EA41B-9031-4AAF-AD7D-5497A82D33B8}
 		{2DB76A21-FA37-432A-ACF1-CFE246AA91F4} = {5F3EA41B-9031-4AAF-AD7D-5497A82D33B8}
+		{266736DF-6FB1-4DA5-A659-170225343029} = {5F3EA41B-9031-4AAF-AD7D-5497A82D33B8}
 	EndGlobalSection
 EndGlobal

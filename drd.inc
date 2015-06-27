@@ -120,6 +120,12 @@ drd_setWindowTitle PROTO strng:DWORD
 ; warning: interception messages that are handled by drd may cause it not to function properly. see drd code for the messaged processed.
 drd_setWinMsgHandler PROTO msg:DWORD, callback:DWORD
 
+; initialize an OpenGL context
+drd_initGL PROTO
+
+; flip OpenGL's back and front buffers
+drd_flipGL PROTO
+
 ;------- crt replacement functions -----
 mrand PROTO
 msrand PROTO seed:DWORD
