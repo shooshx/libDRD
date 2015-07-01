@@ -1,0 +1,2 @@
+- window can be resized
+- press 'F' to go to full screen

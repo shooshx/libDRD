@@ -11,6 +11,7 @@ struct CImg {
     DWORD width;
     DWORD height;
     DWORD hasSrcKey;  // was there a transparency color set
+    HBITMAP hbitmap;
 };
 
 struct CPixelPaint {

@@ -21,6 +21,8 @@ def main(argv):
         
     run(r"copy %s\bin\%s\*.exe %s" % (dir, cfg, reldir))
     run(r"copy %s\rainbow_dash.bmp %s" % (dir, reldir))
+    run(r"copy %s\pi.png %s" % (dir, reldir))
+    run(r"copy %s\kitten.jpg %s" % (dir, reldir))
     run(r"copy %s\*.wav %s" % (dir, reldir))
     run(r"copy %s\cpp_turtle_readme.txt %s" % (dir, reldir))
     

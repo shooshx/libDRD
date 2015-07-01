@@ -18,6 +18,7 @@ START_WIN_HEIGHT equ 600
     prevy DWORD 0
     winWidth DWORD START_WIN_WIDTH
     winHeight DWORD START_WIN_HEIGHT
+    screenMode DWORD 0  ; 0 for window, 1 for full screen
 .code
 
 ; choose a random value in [from : from+range]
@@ -85,12 +86,28 @@ resizeHandler PROC w:DWORD, h:DWORD
     ret
 resizeHandler ENDP
 
+keyHandler PROC vk:DWORD
+    cmp vk, 70 ; letter 'F'
+    jne doneKey
+    cmp screenMode, 0
+    je doFull
+    invoke drd_init, START_WIN_WIDTH, START_WIN_HEIGHT, INIT_WINDOW OR INIT_RESIZABLE
+    mov screenMode, 0
+    jmp doneKey
+  doFull:
+    invoke drd_init, START_WIN_WIDTH, START_WIN_HEIGHT, INIT_FULLSCREEN
+    mov screenMode, 1
+  doneKey:
+    ret
+keyHandler ENDP
 
 
 main PROC
     invoke drd_setResizeHandler, offset resizeHandler     ; init will call the resize handler
     invoke drd_init, START_WIN_WIDTH, START_WIN_HEIGHT, INIT_WINDOW OR INIT_RESIZABLE; ; can be changed to INIT_WINDOWFULL OR INIT_INPUT_FALLTHROUGH; INIT_FULLSCREEN 
     ;invoke drd_windowSetTranslucent, 70
+
+    invoke drd_setKeyHandler, offset keyHandler
 
   frameLoop:
     invoke drd_processMessages

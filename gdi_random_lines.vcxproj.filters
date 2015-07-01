@@ -3,4 +3,7 @@
   <ItemGroup>
     <MASM Include="gdi_random_lines.asm" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="gdi_random_lines.readme.txt" />
+  </ItemGroup>
 </Project>

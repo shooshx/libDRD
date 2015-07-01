@@ -1,0 +1,3 @@
+- running an animation using an image atlas
+- loading an image from a resource in the executable
+- setting an icon resource with IDI_APPLICATION for the title-bar and Explorer icon

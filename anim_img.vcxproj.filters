@@ -11,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="anim_torus.bmp" />
+    <Image Include="rainbow_icon.ico" />
   </ItemGroup>
 </Project>

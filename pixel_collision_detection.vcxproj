@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{2B698397-02AA-4F07-9BCD-5412F2EF96A5}</ProjectGuid>
+    <ProjectGuid>{82A30B2E-55FC-4953-AAA2-17289518D931}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>cpp_turtle</RootNamespace>
   </PropertyGroup>
@@ -59,7 +59,6 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -75,7 +74,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -84,10 +82,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="gdi_random_lines.asm" />
+    <ClCompile Include="pixel_collision_detection.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="gdi_random_lines.readme.txt" />
+    <Text Include="pixel_collision_detection.readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pixel_collision_detection.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

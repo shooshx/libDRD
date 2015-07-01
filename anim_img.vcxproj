@@ -94,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="anim_torus.bmp" />
+    <Image Include="rainbow_icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

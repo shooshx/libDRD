@@ -1,9 +1,7 @@
 
+D3D
 
-window color-key
+check image memory leak
+opengl+gdi+direcdraw
 
-
-alpha blt http://msdn.microsoft.com/en-us/library/aa915435.aspx
-PNG load
-
-
+use HBITMAP from Img

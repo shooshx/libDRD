@@ -48,10 +48,19 @@ int mwstrcat_s(wchar_t* dst, size_t dstsz, const wchar_t* src) {
     return di + 1;
 }
 
+void stratow(const char* abuf, wchar_t* wbuf, int maxsize) {
+    int i = 0;
+    while (i < maxsize) {
+        char c = abuf[i];
+        wbuf[i] = c;
+        if (c == 0)
+            return;
+        ++i;
+    }
+}
 
-
- void mitoa(int n, char s[], int base)
- {
+void mitoa(int n, char s[], int base)
+{
     if (base > 16)
         return;
     static const char digits[] = "0123456789ABCDEF";
@@ -76,7 +85,13 @@ int mwstrcat_s(wchar_t* dst, size_t dstsz, const wchar_t* src) {
         s[ii] = s[jj];
         s[jj] = c;
     }
- }
+}
+
+void mmemcpy(char* dest, const char* src, int sz) {
+    for(int i = 0; i < sz; ++i)
+        dest[i] = src[i];
+}
+
 
 unsigned int g_randState = 0;
 void __stdcall msrand(unsigned int s) {

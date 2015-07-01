@@ -85,6 +85,7 @@ Img STRUCT
     iwidth DWORD ?
     iheight DWORD ?
     hasSrcKey DWORD ?
+    hbitmap DWORD ?
 Img ENDS
 
 ; load an image from file `filename` into an Img struct

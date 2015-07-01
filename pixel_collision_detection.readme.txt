@@ -1,0 +1,3 @@
+Collision detection using sampling of pixels at 8 points on the circumference of a circle
+- load a PNG and JPEG image from file or resource
+- click the mouse button the move between images

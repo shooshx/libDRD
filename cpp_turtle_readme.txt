@@ -1,7 +1,7 @@
 This example is a simple "LOGO" like drawing program
 - See code for the list of interpreted commands
 - lines are drawn pixel-by-pixel
-
+- render thread and GUI thread
 
 
 
@@ -75,3 +75,35 @@ func tr lvl startf
 endf
 
 tr 100
+
+####### snow fractal
+#
+
+= ang 60
+= dang ang
+* dang 2
+neg ang
+
+func rec lvl startf
+  if lvl == 0
+    F 2
+    return
+  endif
+  - lvl 1
+  rec lvl
+  T ang
+  rec lvl
+  T dang
+  rec lvl
+  T ang
+  rec lvl
+endf
+
+= dolvl 5
+Bs 300
+T -30
+rec dolvl 
+T 120
+rec dolvl 
+T 120
+rec dolvl 

@@ -4,8 +4,12 @@
 #include "drd.h"
 #include "drd_mcrt.h"
 #include "drd_arraymap.h"
-#include <ddraw.h>
-#include <gl/gl.h>
+#include <ddraw.h> // direct-draw
+#include <gl/gl.h> // opengl
+#include <Shlwapi.h>
+#include <Gdiplus.h> // https://msdn.microsoft.com/en-us/library/windows/desktop/ms533971(v=vs.85).aspx
+#include <Ole2.h>
+
 
 #define VERSION L"1.4"
 
@@ -29,15 +33,17 @@ void format(char* buf, int len, const char* first, Args... args) {
 }
 template<typename... Args>
 void format(char* buf, int len, DWORD first, Args... args) {
-    mitoa(first, buf, 16);
+    char numbuf[20] = {0};
+    mitoa(first, numbuf, 16);
+    mstrcat_s(buf, len, numbuf);
     format(buf, len, args...);
 }
 
 template<typename... Args>
 void msgError(Args... args) {
-    char buf[300];
-    mZeroMemory(buf, 200);
-    format(buf, 200, args...);
+    char buf[500];
+    mZeroMemory(buf, 500);
+    format(buf, 500, args...);
 
     if (g_errorHandler != NULL) {
         g_errorHandler(buf);
@@ -166,11 +172,19 @@ public:
     WORD* cur;
 };
 
+INT_PTR CALLBACK aboutDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (uMsg == WM_CLOSE) {
+        DestroyWindow(hDlg);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 void runAboutDialog() {
     DialogTemplate dt(160, 55);
     dt.addStatic(10, 10, 150, 40, 101, L"DRD Version " VERSION L"\nhttps://github.com/shooshx/DirectDrawTest\nShy Shalom, 2015\nshooshx@gmail.com");
 
-    HWND dlg = CreateDialogIndirectW(GetModuleHandle(NULL), dt.header, g_hMainWnd, NULL);
+    HWND dlg = CreateDialogIndirectW(GetModuleHandle(NULL), dt.header, g_hMainWnd, aboutDialogProc);
 }
 
 
@@ -634,31 +648,30 @@ bool __stdcall drd_init(DWORD width, DWORD height, DWORD flags)
 }
 
 
+#define DO_MODULE(name) struct DLL##name { HMODULE mod = LoadLibraryA( #name ".dll"); \
+            static DLL##name* instance() { \
+                static DLL##name f;       \
+                if (f.mod == NULL) { \
+                    msgError("Failed loading " #name ".dll"); \
+                    return NULL;     \
+                } return &f; }
+#define GET_FUNC(name) using T##name = decltype(name); T##name* p##name = (T##name*)GetProcAddress(mod, #name);
+#define END_MODULE }; 
 
-#define GET_FUNC(name, type) using T##name = type; T##name name = (T##name)GetProcAddress(mod, #name);
 
-struct GLFuncs {
-    HMODULE mod = LoadLibraryA("opengl32.dll");
-
-    GET_FUNC(wglCreateContext, HGLRC(WINAPI*)(HDC));
-    GET_FUNC(wglMakeCurrent, BOOL(WINAPI*)(HDC, HGLRC));
-
-    static GLFuncs& instance() {
-        static GLFuncs f;
-        return f;
-    }
-};
+DO_MODULE(opengl32)
+    GET_FUNC(wglCreateContext)
+    GET_FUNC(wglMakeCurrent)
+END_MODULE
 
 
 bool __stdcall drd_initGL()
 {
     CHECKR_INITDRD(g_hMainWnd, false);
 
-    auto f = GLFuncs::instance();
-    if (f.mod == NULL) {
-        msgError("Failed loading opengl32.dll");
+    auto f = DLLopengl32::instance();
+    if (f == NULL)
         return false;
-    }
 
     g_glHDC = GetDC(g_hMainWnd);  //get current windows device context
 
@@ -692,12 +705,12 @@ bool __stdcall drd_initGL()
         return false;
     }
 
-    g_glHRC = f.wglCreateContext(g_glHDC);
+    g_glHRC = f->pwglCreateContext(g_glHDC);
     if (g_glHRC == NULL) {
         msgErrorLE("Failed wglCreateContext ");
         return false;
     }
-    if (!f.wglMakeCurrent(g_glHDC, g_glHRC)) {
+    if (!f->pwglMakeCurrent(g_glHDC, g_glHRC)) {
         msgErrorLE("Failed wglMakeCurrent ");
         return false;
     }
@@ -768,7 +781,8 @@ void __stdcall drd_pixelsBegin(CPixelPaint* pp) {
     mZeroMemory(&ddsd, sizeof(ddsd));
     ddsd.dwSize = sizeof(ddsd);
     HRESULT hr = g_pDDSBack->Lock(NULL, &ddsd, DDLOCK_WAIT, NULL);
-    checkHr(hr, "Failed Lock");
+    if (!checkHr(hr, "Failed Lock"))
+        return;
     pp->buf = (DWORD*)ddsd.lpSurface;
     pp->pitch = ddsd.lPitch;
     pp->bytesPerPixel = g_srfPixelBytes;
@@ -849,30 +863,151 @@ void __stdcall drd_imageDraw(CImg* img, int dstX, int dstY) {
 }
 
 
-static bool imageLoad(const char* filename, DWORD id, CImg* ret)
+using namespace Gdiplus::DllExports;
+using namespace Gdiplus;
+
+DO_MODULE(Gdiplus)
+    GET_FUNC(GdipCreateBitmapFromFile)
+    GET_FUNC(GdiplusStartup)
+    GET_FUNC(GdipCreateHBITMAPFromBitmap)
+    GET_FUNC(GdipDisposeImage)
+    GET_FUNC(GdipCreateBitmapFromStream)
+
+    void init() {
+        static bool inited = false;
+        if (inited)
+            return;
+        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+        ULONG_PTR gdiplusToken = 0;
+        pGdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+        inited = true;
+    }
+END_MODULE
+
+DO_MODULE(Ole32)
+    GET_FUNC(CreateStreamOnHGlobal)
+END_MODULE
+
+#define CHECKR_C(cond, errCall, ret) if (!(cond)) { errCall; return ret; }
+
+static HBITMAP imageOpenFile(const char* filename, DWORD id, bool doFile)
 {
-    CHECKR_INIT_MSG(ret, false, "pointer to Img struct should not be NULL");
-    CHECKR_INITDRD(g_pDD, false);
+    // id the file
+    char headerBuf[4] = { 0 };
+    char* header = headerBuf;
+    HMODULE mod = NULL;
+    DWORD resSz = 0;
+    bool resIsBmp = false;
 
-    BITMAP bm;
-    IDirectDrawSurface7 *pdds;
-
-    HBITMAP hbm;
-    if (filename != NULL) {
-        hbm = (HBITMAP)LoadImageA(NULL, filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-        if (hbm == NULL) {
-            msgError("imageLoadFile: Failed to load file ", filename, " ", lastErrorStr());
-            return false;
+    if (doFile) {
+        CHECKR_INIT(filename, NULL);
+        HANDLE f = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (f == INVALID_HANDLE_VALUE) {
+            msgError("imageLoadFile: Failed to open file ", filename, " ", lastErrorStr());
+            return NULL;
+        }
+        DWORD didread = 0;
+        BOOL readOk = ReadFile(f, header, 4, &didread, NULL);
+        DWORD err = GetLastError();
+        CloseHandle(f);
+        if (!readOk) {
+            msgError("imageLoadFile: failed ReadFile ", err);
+            return NULL;
         }
     }
     else {
-        hbm = (HBITMAP)LoadImageA(GetModuleHandle(NULL), MAKEINTRESOURCEA(id), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
-        if (hbm == NULL) {
-            msgError("imageLoadFile: Failed to load resoruce", id, " ", lastErrorStr());
-            return false;
+        resIsBmp = true;
+        mod = GetModuleHandle(NULL);
+        HRSRC res = FindResource(mod, MAKEINTRESOURCE(id), RT_BITMAP);
+        if (res == NULL) {
+            resIsBmp = false; // RT_BITMAP resource can only be a BMP
+            res = FindResource(mod, MAKEINTRESOURCE(id), RT_RCDATA); 
         }
+        CHECKR_C(res != NULL, msgErrorLE("imageLoadFile: failed LoadResource "), NULL);
+
+        HGLOBAL gres = LoadResource(mod, res);
+        CHECKR_C(gres != NULL, msgErrorLE("imageLoadFile: failed LoadResource "), NULL);
+
+        LPVOID ptr = LockResource(gres);
+        CHECKR_C(ptr != NULL, msgErrorLE("imageLoadFile: failed LockResource "), NULL);
+
+        resSz = SizeofResource(mod, res);
+        if (resSz < 2)
+            return NULL;
+
+        header = (char*)ptr;
     }
 
+    HBITMAP hbm;
+    if (resIsBmp || (header[0] == 'B' && header[1] == 'M'))
+    {
+        if (doFile) {
+            hbm = (HBITMAP)LoadImageA(NULL, filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+            CHECKR_C(hbm != NULL, msgError("imageLoadFile: Failed to open BMP file ", filename, " ", lastErrorStr()), NULL);
+        }
+        else {
+            hbm = (HBITMAP)LoadImageA(mod, MAKEINTRESOURCEA(id), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+            CHECKR_C(hbm != NULL, msgError("imageLoadFile: Failed to load resoruce ", id, " ", lastErrorStr()), NULL);
+        }
+        return hbm;
+    }
+    else //if (header[0] == '\x89' && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') 
+    {
+        auto f = DLLGdiplus::instance();
+        if (f == NULL)
+            return NULL;
+
+        f->init();
+
+        Gdiplus::GpBitmap* bm = NULL;
+        Gdiplus::GpStatus ret;
+        if (doFile) {
+            wchar_t wname[MAX_PATH + 1] = { 0 };
+            stratow(filename, wname, MAX_PATH);
+
+            ret = f->pGdipCreateBitmapFromFile(wname, &bm);
+            CHECKR_C(ret == 0, msgError("Failed GdipCreateBitmapFromFile ", ret), NULL);
+        }
+        else {
+            auto of = DLLOle32::instance();
+            if (of == NULL)
+                return NULL;
+
+            char* gptr = (char*)GlobalAlloc(GMEM_FIXED, resSz);
+            mmemcpy(gptr, header, resSz);
+            IStream *pStream = NULL;
+            auto oleret = of->pCreateStreamOnHGlobal(gptr, TRUE, &pStream);
+            CHECKR_C(oleret == S_OK, msgError("Failed CreateStreamOnHGlobal ", oleret), NULL);
+            ret = f->pGdipCreateBitmapFromStream(pStream, &bm);
+            pStream->Release();
+            CHECKR_C(ret == 0, msgError("Failed GdipCreateBitmapFromResource ", ret), NULL);
+            GlobalFree(gptr);
+        }
+
+        HBITMAP hbm = 0;
+        ret = f->pGdipCreateHBITMAPFromBitmap(bm, &hbm, 0x00ff00);
+        CHECKR_C(ret == 0, msgError("Failed pGdipCreateHBITMAPFromBitmap ", ret), NULL);
+
+        f->pGdipDisposeImage(bm);
+
+        return hbm;
+    }
+
+}
+
+
+static bool imageLoad(const char* filename, DWORD id, CImg* ret, bool doFile)
+{
+    CHECKR_INIT_MSG(ret, false, "pointer to Img struct should not be NULL");
+    mZeroMemory(ret, sizeof(CImg)); // even if we fail still want that content to be zeros
+    CHECKR_INITDRD(g_pDD, false);
+
+    HBITMAP hbm = imageOpenFile(filename, id, doFile);
+    if (hbm == NULL) {
+        return false;
+    }
+
+    BITMAP bm;
     GetObject(hbm, sizeof(bm), &bm); // get size of bitmap
 
     // create the surface
@@ -884,6 +1019,7 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
     ddsd.dwWidth = bm.bmWidth;
     ddsd.dwHeight = bm.bmHeight;
 
+    IDirectDrawSurface7 *pdds = NULL;
     HRESULT ddrval = g_pDD->CreateSurface(&ddsd, &pdds, NULL);
     if (!checkHr(ddrval, "imageLoadFile: failed CreateSurface")) {
         return false;
@@ -906,22 +1042,21 @@ static bool imageLoad(const char* filename, DWORD id, CImg* ret)
 
     SelectObject(hdcImage, hbmOld);
     DeleteDC(hdcImage);
-    DeleteObject(hbm);
 
     ret->surface = pdds;
     ret->height = bm.bmHeight;
     ret->width = bm.bmWidth;
     ret->hasSrcKey = FALSE;
+    ret->hbitmap = hbm;
     return true;
 }
 
 bool __stdcall drd_imageLoadFile(const char* filename, CImg* ret) {
-    CHECKR_INIT(filename, false);   
-    return imageLoad(filename, 0, ret);
+    return imageLoad(filename, 0, ret, true);
 }
 
 bool __stdcall drd_imageLoadResource(DWORD id, CImg* ret) {
-    return imageLoad(NULL, id, ret);
+    return imageLoad(NULL, id, ret, false);
 }
 
 
@@ -933,7 +1068,8 @@ void __stdcall drd_imageSetTransparent(CImg* img, DWORD color) {
     ddck.dwColorSpaceLowValue = color;
     ddck.dwColorSpaceHighValue = color;
     HRESULT hr = img->surface->SetColorKey(DDCKEY_SRCBLT, &ddck);
-    checkHr(hr, "Failed SetColorKey");
+    if (!checkHr(hr, "Failed SetColorKey"))
+        return;
     img->hasSrcKey = TRUE;
 }
 
@@ -943,9 +1079,10 @@ void __stdcall drd_imageDelete(CImg* img) {
     if (img->surface != NULL) {
         img->surface->Release();
     }
-    img->surface = NULL;
-    img->height = 0;
-    img->width = 0;
+    if (img->hbitmap != NULL) {
+        DeleteObject(img->hbitmap);
+    }
+    mZeroMemory(img, sizeof(CImg));
 }
 
 

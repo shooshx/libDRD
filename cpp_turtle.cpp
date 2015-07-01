@@ -136,8 +136,8 @@ void interpret()
 
     try {
         while (ip < text.length()) {
-            //if (GetTickCount() - startTime > allocTime)
-            //    error("too much time");
+            if (GetTickCount() - startTime > allocTime)
+                error("too much time");
             string c = readChars();
             if (c[0] == '#') { // comment
                 ip = text.find('\n', ip);
@@ -344,7 +344,7 @@ void swap(int& x, int& y) {
 }
 
 CPixelPaint pp;
-int mx = 0, my = 0;
+
 
 #define PUT_PIXEL(x, y, c) *(pp.buf + x + y * pp.wpitch) = c
 
@@ -380,15 +380,36 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned int color)
 
 }
 
+/*
+int mx = 0, my = 0;
 void __stdcall mouseHandler(DWORD msg, DWORD wParam, DWORD lParam) {
     mx = (short)(lParam & 0xffff);
     my = (short)(lParam >> 16);
 }
+*/
 
 void __stdcall scrollChange(int id, int value) {
     scrollValue[id - 3] = value;
 }
 
+
+DWORD WINAPI renderThread(LPVOID)
+{
+    while (true) {
+
+        drd_pixelsClear(0);
+        drd_pixelsBegin(&pp);
+
+        interpret();
+
+        drd_pixelsEnd();
+        drd_flip();
+
+
+        Sleep(10);
+    }
+    return 0;
+}
 
 int main() 
 {
@@ -410,22 +431,11 @@ int main()
 //    ButtonCtrl b = { "BUTTON", 2, 700, 520, 70, 30,  BS_PUSHBUTTON, 0, "Do It!", pressHandler };
 //    drd_createCtrl(&b);
 
-    drd_setMouseHandler(mouseHandler);
+//    drd_setMouseHandler(mouseHandler);
 
+    CreateThread(NULL, 0, renderThread, 0, 0, NULL);
 
     while (drd_processMessages()) {
-
-        drd_pixelsClear(0);
-        drd_pixelsBegin(&pp);
-
-        interpret();
-
-        //drawLine(300, 300, mx, my, );
-
-        drd_pixelsEnd();
-        drd_flip();
-
-
         Sleep(1);
     }
 
