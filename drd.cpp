@@ -893,7 +893,7 @@ END_MODULE
 static HBITMAP imageOpenFile(const char* filename, DWORD id, bool doFile)
 {
     // id the file
-    char headerBuf[4] = { 0 };
+    char headerBuf[2];
     char* header = headerBuf;
     HMODULE mod = NULL;
     DWORD resSz = 0;
@@ -907,7 +907,7 @@ static HBITMAP imageOpenFile(const char* filename, DWORD id, bool doFile)
             return NULL;
         }
         DWORD didread = 0;
-        BOOL readOk = ReadFile(f, header, 4, &didread, NULL);
+        BOOL readOk = ReadFile(f, header, 2, &didread, NULL);
         DWORD err = GetLastError();
         CloseHandle(f);
         if (!readOk) {
@@ -962,7 +962,8 @@ static HBITMAP imageOpenFile(const char* filename, DWORD id, bool doFile)
         Gdiplus::GpBitmap* bm = NULL;
         Gdiplus::GpStatus ret;
         if (doFile) {
-            wchar_t wname[MAX_PATH + 1] = { 0 };
+            wchar_t wname[MAX_PATH + 1];
+            mZeroMemory(wname, sizeof(wchar_t) * (MAX_PATH + 1));
             stratow(filename, wname, MAX_PATH);
 
             ret = f->pGdipCreateBitmapFromFile(wname, &bm);
